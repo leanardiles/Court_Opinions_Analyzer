@@ -15,3 +15,7 @@ frontend/.env
 # OS files
 .DS_Store
 Thumbs.db
+
+# Specific files to ignore
+PROJECT_PROGRESS.txt
+STARTUP_GUIDE.txt
