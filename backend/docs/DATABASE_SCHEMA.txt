@@ -1,0 +1,353 @@
+================================================================================
+COMPLETE DATABASE SCHEMA - ALL 5 TABLES
+================================================================================
+
+This document explains the complete database architecture for the
+Court Opinions Analyzer application.
+
+================================================================================
+TABLE RELATIONSHIPS (Visual Diagram)
+================================================================================
+
+User (admin)
+    |
+    | creates
+    ↓
+Project ────────────────┐
+    |                   |
+    | has               | assigned to
+    ↓                   ↓
+CourtCase          User (scholar)
+    |
+    | assigned to
+    ↓
+Assignment ←── assigned to ── User (validator)
+    |
+    | has one
+    ↓
+Verification
+
+
+================================================================================
+DETAILED TABLE BREAKDOWN
+================================================================================
+
+1. USERS TABLE
+================================================================================
+Purpose: Store all user accounts (admins, scholars, validators)
+
+Fields:
+- id (PK)                   : Unique user identifier
+- email (UNIQUE)            : Login email
+- hashed_password           : Bcrypt-hashed password
+- role (ENUM)               : "admin" | "scholar" | "validator"
+- full_name                 : Optional display name
+- is_active (BOOLEAN)       : Account status
+- created_at (TIMESTAMP)    : Registration date
+- updated_at (TIMESTAMP)    : Last modification
+
+Relationships:
+- created_projects    → Projects created (if admin)
+- scholar_projects    → Projects assigned to (if scholar)
+- assignments         → Cases assigned to verify (if validator)
+
+Example Data:
+┌────┬───────────────────┬──────────┬────────────┐
+│ id │ email             │ role     │ full_name  │
+├────┼───────────────────┼──────────┼────────────┤
+│ 1  │ admin@cardozo.edu │ admin    │ Prof. Lee  │
+│ 2  │ ta1@cardozo.edu   │ validator│ Sarah Chen │
+│ 3  │ prof@cardozo.edu  │ scholar  │ Dr. Smith  │
+└────┴───────────────────┴──────────┴────────────┘
+
+
+2. PROJECTS TABLE
+================================================================================
+Purpose: Represent research projects (one per Parquet upload)
+
+Fields:
+- id (PK)                   : Unique project identifier
+- name                      : Project display name
+- description               : Project details
+- admin_id (FK → users)     : Who created the project
+- scholar_id (FK → users)   : Who reviews validator work
+- parquet_filename          : Original uploaded filename
+- parquet_filepath          : Where file is stored on server
+- total_cases               : Count of cases in this project
+- is_active (BOOLEAN)       : Project status
+- created_at (TIMESTAMP)    : When project was created
+- updated_at (TIMESTAMP)    : Last modification
+
+Relationships:
+- admin        → User who created it
+- scholar      → User who reviews it
+- court_cases  → All cases in this project
+
+Example Data:
+┌────┬──────────────────────┬──────────┬────────────┬─────────────┐
+│ id │ name                 │ admin_id │ scholar_id │ total_cases │
+├────┼──────────────────────┼──────────┼────────────┼─────────────┤
+│ 1  │ Purcell Analysis 2024│ 1        │ 3          │ 1000        │
+│ 2  │ Election Law Study   │ 1        │ 3          │ 500         │
+└────┴──────────────────────┴──────────┴────────────┴─────────────┘
+
+
+3. COURT_CASES TABLE
+================================================================================
+Purpose: Store individual court opinions from Parquet files
+
+Fields:
+- id (PK)                   : Unique case identifier
+- project_id (FK → projects): Which project this belongs to
+- case_name                 : "Eakin v. Adams County"
+- case_date                 : When decided
+- court                     : "PA Supreme Court"
+- docket_number             : "123 A.3d 456"
+- judges_names (JSON)       : ["Smith, J.", "Jones, J."]
+- opinion_text (TEXT)       : Full opinion content
+- dissent_text (TEXT)       : Dissenting opinion (if any)
+- concur_text (TEXT)        : Concurring opinion (if any)
+- state                     : "PA"
+- election_type             : "general" | "primary" | etc.
+- party_who_appointed_judge : "Democrat" | "Republican" | etc.
+- ai_analysis (JSON)        : AI's answers to 9 questions
+- created_at (TIMESTAMP)    : When added to database
+
+Relationships:
+- project     → Project this case belongs to
+- assignments → Validators assigned to verify this case
+
+Example Data:
+┌────┬────────────┬───────────────────────┬────────┬────────────────┐
+│ id │ project_id │ case_name             │ court  │ judges_names   │
+├────┼────────────┼───────────────────────┼────────┼────────────────┤
+│ 1  │ 1          │ Eakin v. Adams County │ PA SC  │ ["Smith, J."]  │
+│ 2  │ 1          │ Kim v. Hanlon         │ PA SC  │ ["Jones, J."]  │
+└────┴────────────┴───────────────────────┴────────┴────────────────┘
+
+
+4. ASSIGNMENTS TABLE
+================================================================================
+Purpose: Track which validator verifies which case
+
+Fields:
+- id (PK)                      : Unique assignment identifier
+- court_case_id (FK → cases)   : Which case to verify
+- validator_id (FK → users)    : Who should verify it
+- status (ENUM)                : "pending" | "in_progress" | "completed" | "reviewed"
+- priority (INTEGER)           : For load balancing (0 = normal)
+- notes (TEXT)                 : Admin instructions to validator
+- assigned_at (TIMESTAMP)      : When assigned
+- started_at (TIMESTAMP)       : When validator opened it
+- completed_at (TIMESTAMP)     : When submitted
+
+Relationships:
+- court_case   → The case being verified
+- validator    → The TA/validator doing the work
+- verification → Their verification (one-to-one)
+
+Example Data:
+┌────┬─────────────┬──────────────┬─────────────┬────────────────┐
+│ id │ case_id     │ validator_id │ status      │ completed_at   │
+├────┼─────────────┼──────────────┼─────────────┼────────────────┤
+│ 1  │ 1           │ 2            │ completed   │ 2026-02-20     │
+│ 2  │ 2           │ 2            │ in_progress │ NULL           │
+│ 3  │ 3           │ 4            │ pending     │ NULL           │
+└────┴─────────────┴──────────────┴─────────────┴────────────────┘
+
+
+5. VERIFICATIONS TABLE
+================================================================================
+Purpose: Store validator's verification of AI analysis
+
+Fields:
+- id (PK)                        : Unique verification identifier
+- assignment_id (FK → assignments): Which assignment this verifies (UNIQUE)
+- validator_answers (JSON)       : Validator's answers + correctness check
+- total_questions (INTEGER)      : Should be 9
+- ai_correct_count (INTEGER)     : How many AI got right
+- accuracy_percentage (INTEGER)  : (ai_correct / total) * 100
+- general_notes (TEXT)           : Validator's overall comments
+- reviewed_by_scholar (BOOLEAN)  : Scholar reviewed this?
+- scholar_notes (TEXT)           : Scholar's feedback
+- reviewed_at (TIMESTAMP)        : When scholar reviewed
+- created_at (TIMESTAMP)         : When verification created
+- updated_at (TIMESTAMP)         : Last modification
+
+Relationships:
+- assignment → The assignment being verified
+
+Example validator_answers JSON:
+{
+  "question_1": {
+    "answer": "yes",
+    "ai_answer": "yes",
+    "correct": true,
+    "notes": "AI correctly identified Purcell principle"
+  },
+  "question_2": {
+    "answer": "no",
+    "ai_answer": "yes",
+    "correct": false,
+    "notes": "AI was wrong - no emergency mentioned"
+  },
+  ...
+}
+
+Example Data:
+┌────┬───────────────┬─────────────────┬─────────────────────┐
+│ id │ assignment_id │ ai_correct_count│ accuracy_percentage │
+├────┼───────────────┼─────────────────┼─────────────────────┤
+│ 1  │ 1             │ 7               │ 78                  │
+│ 2  │ 2             │ 9               │ 100                 │
+└────┴───────────────┴─────────────────┴─────────────────────┘
+
+
+================================================================================
+WORKFLOW EXAMPLE
+================================================================================
+
+Step 1: Admin creates project
+-------------------------------
+admin@cardozo.edu logs in
+→ Creates "Purcell Analysis 2024" project
+→ Assigns scholar: prof@cardozo.edu
+→ Uploads court_cases.parquet (1000 cases)
+
+Database changes:
+  projects table: +1 row (project_id = 1)
+  court_cases table: +1000 rows (cases from Parquet)
+
+
+Step 2: Admin assigns validators
+---------------------------------
+admin@cardozo.edu
+→ Assigns case #1 to ta1@cardozo.edu
+→ Assigns case #2 to ta1@cardozo.edu
+→ Assigns case #3 to ta2@cardozo.edu
+
+Database changes:
+  assignments table: +3 rows (all status="pending")
+
+
+Step 3: Validator works on assignment
+--------------------------------------
+ta1@cardozo.edu logs in
+→ Sees 2 pending assignments
+→ Opens case #1 (assignment status → "in_progress")
+→ Reviews AI's 9 answers
+→ Marks 7 as correct, 2 as incorrect
+→ Submits verification
+
+Database changes:
+  assignments table: assignment #1 status → "completed"
+  verifications table: +1 row (accuracy = 78%)
+
+
+Step 4: Scholar reviews
+-----------------------
+prof@cardozo.edu logs in
+→ Sees completed verifications
+→ Reviews TA's work on case #1
+→ Adds notes, marks as reviewed
+
+Database changes:
+  verifications table: reviewed_by_scholar = true
+  assignments table: status → "reviewed"
+
+
+================================================================================
+KEY DESIGN DECISIONS
+================================================================================
+
+1. WHY JSON FOR AI_ANALYSIS AND VALIDATOR_ANSWERS?
+---------------------------------------------------
+Flexible structure - can store 9 questions without 9 separate columns
+Easy to add/remove questions without schema changes
+Keeps related data together
+
+
+2. WHY SEPARATE ASSIGNMENT AND VERIFICATION TABLES?
+----------------------------------------------------
+Assignment = workflow tracking (who, when, status)
+Verification = actual data (answers, accuracy)
+Assignment can exist before verification (pending state)
+
+
+3. WHY STORE PARQUET_FILEPATH IN PROJECT?
+------------------------------------------
+Keep original Parquet file as backup
+Allows re-importing if needed
+Reference for scholar
+
+
+4. WHY FOREIGN KEYS?
+--------------------
+Maintain data integrity (can't assign non-existent case)
+Enable cascading deletes (delete project → delete all its cases)
+Support joins (get all cases for a project)
+
+
+================================================================================
+NEXT STEPS TO USE THIS SCHEMA
+================================================================================
+
+1. Replace your backend/app/models.py
+   - Copy content from models_complete.py
+
+2. Replace your backend/init_db.py
+   - Copy content from init_db_complete.py
+
+3. Reset your database
+   cd backend
+   python init_db.py --drop    # Delete old tables
+   python init_db.py           # Create new tables with all 5
+
+4. Verify tables were created
+   python
+   >>> from app.database import SessionLocal
+   >>> from app.models import *
+   >>> db = SessionLocal()
+   >>> # Try creating a project
+   >>> user = User(email="test@test.com", hashed_password="x", role=UserRole.ADMIN)
+   >>> db.add(user)
+   >>> db.commit()
+   >>> project = Project(name="Test", admin_id=user.id)
+   >>> db.add(project)
+   >>> db.commit()
+   >>> print(f"Created project #{project.id}")
+
+5. Build authentication system
+   - Now that data model is ready, build auth endpoints
+
+6. Build API endpoints for each workflow step
+   - Admin: Create project, upload Parquet, assign validators
+   - Validator: View assignments, submit verifications
+   - Scholar: View results, review verifications
+
+
+================================================================================
+QUESTIONS TO VERIFY UNDERSTANDING
+================================================================================
+
+Q1: What's the difference between CourtCase and Assignment?
+A: CourtCase is the data (the opinion). Assignment is the workflow
+   (who verifies it, when, status).
+
+Q2: Can one case have multiple assignments?
+A: Yes! Multiple validators could verify the same case (for inter-rater
+   reliability).
+
+Q3: Where is the Parquet file stored?
+A: File system (backend/uploads/). Filepath stored in projects.parquet_filepath.
+   Data copied into court_cases table.
+
+Q4: How do we know which validator did which verification?
+A: assignment.validator_id → verification.assignment_id (one-to-one)
+
+Q5: What happens if we delete a project?
+A: Cascade delete removes all court_cases, assignments, and verifications
+   for that project.
+
+
+================================================================================
