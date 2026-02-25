@@ -1,0 +1,224 @@
+================================================================================
+COURT OPINIONS ANALYZER - STARTUP GUIDE
+================================================================================
+
+This guide shows you how to start your development servers for both the 
+backend (FastAPI) and frontend (React + Vite) applications.
+
+================================================================================
+PREREQUISITES
+================================================================================
+
+Make sure you have:
+- Python 3.11+ installed
+- Node.js 18+ installed
+- Git Bash (or any terminal)
+- PostgreSQL installed and running (for production use)
+
+================================================================================
+STARTING THE BACKEND (FastAPI)
+================================================================================
+
+STEP 1: Open Git Bash / Terminal
+
+STEP 2: Navigate to the backend folder
+--------
+cd ~/Documents/Katz\ School/Capstone_Court_Opinions_Analyzer/backend
+
+(Adjust the path based on where you cloned the repo)
+
+STEP 3: Activate the virtual environment
+--------
+# On Mac/Linux:
+source venv/bin/activate
+
+# On Windows (Git Bash):
+source venv/Scripts/activate
+
+You should see (venv) appear at the start of your terminal prompt:
+(venv) your-username@computer backend $
+
+STEP 4: Start the FastAPI server
+--------
+uvicorn app.main:app --reload --port 8000
+
+OR (if you have a main.py at the root):
+python app/main.py
+
+You should see:
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process
+INFO:     Started server process
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+STEP 5: Test it's working
+--------
+Open your browser and go to:
+http://localhost:8000/docs
+
+You should see the FastAPI auto-generated API documentation (Swagger UI).
+
+STEP 6: Keep this terminal running
+--------
+Leave this terminal open while you're developing.
+The server will auto-reload when you save Python files.
+
+To STOP the backend:
+Press Ctrl+C in the terminal
+
+================================================================================
+STARTING THE FRONTEND (React + Vite)
+================================================================================
+
+STEP 1: Open a NEW Git Bash / Terminal window
+--------
+(Keep the backend terminal running - you need both!)
+
+STEP 2: Navigate to the frontend folder
+--------
+cd ~/Documents/Katz\ School/Capstone_Court_Opinions_Analyzer/frontend
+
+(Adjust the path based on where you cloned the repo)
+
+STEP 3: Start the Vite dev server
+--------
+npm run dev
+
+You should see:
+VITE v8.x.x  ready in XXX ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+➜  press h + enter to show help
+
+STEP 4: Test it's working
+--------
+Open your browser and go to:
+http://localhost:5173/
+
+You should see your React app with Tailwind styling.
+
+STEP 5: Keep this terminal running
+--------
+Leave this terminal open while you're developing.
+The page will auto-reload when you save React/JavaScript files.
+
+To STOP the frontend:
+Press Ctrl+C in the terminal
+
+================================================================================
+TYPICAL DEVELOPMENT WORKFLOW
+================================================================================
+
+Terminal 1 (Backend):
+--------
+cd Court_Opinions_Analyzer/backend
+source venv/bin/activate  # or venv/Scripts/activate on Windows
+uvicorn app.main:app --reload --port 8000
+
+Terminal 2 (Frontend):
+--------
+cd Court_Opinions_Analyzer/frontend
+npm run dev
+
+Browser:
+--------
+Backend API docs: http://localhost:8000/docs
+Frontend app:     http://localhost:5173/
+
+Now you can edit your code and both servers will auto-reload!
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ISSUE: "command not found: uvicorn"
+FIX: 
+  1. Make sure venv is activated (you should see (venv) in prompt)
+  2. Run: pip install uvicorn
+  3. Try again
+
+ISSUE: "Module not found" errors in backend
+FIX:
+  1. Activate venv: source venv/bin/activate
+  2. Install dependencies: pip install -r requirements.txt
+  3. Try again
+
+ISSUE: "Cannot find module" errors in frontend
+FIX:
+  1. Make sure you're in the frontend folder
+  2. Run: npm install
+  3. Try again
+
+ISSUE: Port 8000 or 5173 already in use
+FIX:
+  1. Find what's using the port:
+     - Windows: netstat -ano | findstr :8000
+     - Mac/Linux: lsof -i :8000
+  2. Kill the process or use a different port:
+     - Backend: uvicorn app.main:app --reload --port 8001
+     - Frontend: npm run dev -- --port 5174
+
+ISSUE: Tailwind styles not working
+FIX:
+  1. Make sure src/index.css has:
+     @tailwind base;
+     @tailwind components;
+     @tailwind utilities;
+  2. Run: npm install -D @tailwindcss/postcss
+  3. Restart: npm run dev
+
+================================================================================
+STOPPING EVERYTHING
+================================================================================
+
+To stop development:
+1. Go to Terminal 1 (backend) and press Ctrl+C
+2. Go to Terminal 2 (frontend) and press Ctrl+C
+3. Deactivate backend venv: deactivate
+4. Close terminals
+
+================================================================================
+QUICK REFERENCE - COMMON COMMANDS
+================================================================================
+
+BACKEND:
+--------
+cd Court_Opinions_Analyzer/backend
+source venv/bin/activate              # Activate venv
+uvicorn app.main:app --reload         # Start server
+deactivate                            # Deactivate venv
+pip install <package>                 # Install Python package
+pip freeze > requirements.txt         # Save dependencies
+
+FRONTEND:
+--------
+cd Court_Opinions_Analyzer/frontend
+npm run dev                           # Start dev server
+npm install <package>                 # Install npm package
+npm run build                         # Build for production
+npm run preview                       # Preview production build
+
+GIT:
+--------
+git status                            # Check what changed
+git add .                             # Stage all changes
+git commit -m "message"               # Commit changes
+git push origin main                  # Push to GitHub
+git pull origin main                  # Pull latest changes
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+Once both servers are running:
+1. Make changes to your code in VS Code
+2. Save files (Ctrl+S)
+3. Servers auto-reload
+4. Refresh browser to see changes
+5. Check terminal for any errors
+
+Happy coding! 🚀
+
+================================================================================
