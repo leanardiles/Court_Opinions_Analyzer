@@ -47,3 +47,36 @@ class TokenData(BaseModel):
     """Data stored in JWT token"""
     email: Optional[str] = None
     role: Optional[str] = None
+
+# ============================================================================
+# PROJECT SCHEMAS
+# ============================================================================
+
+class ProjectBase(BaseModel):
+    """Base project schema"""
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = None
+
+class ProjectCreate(ProjectBase):
+    """Schema for creating a project"""
+    scholar_id: Optional[int] = None
+
+class ProjectUpdate(BaseModel):
+    """Schema for updating a project"""
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    scholar_id: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class ProjectResponse(ProjectBase):
+    """Schema for project responses"""
+    id: int
+    admin_id: int
+    scholar_id: Optional[int]
+    total_cases: int
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime]
+    
+    # Pydantic V2 configuration
+    model_config = ConfigDict(from_attributes=True)
