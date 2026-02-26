@@ -187,3 +187,50 @@ def delete_project(
     db.commit()
     
     return None
+
+@router.get("/{project_id}/cases")
+def get_project_cases(
+    project_id: int,
+    skip: int = 0,
+    limit: int = 1000,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all court cases for a project.
+    
+    Returns list of cases with all fields.
+    """
+    # Verify project exists and user has access
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+    
+    # Get cases
+    cases = db.query(CourtCase).filter(
+        CourtCase.project_id == project_id
+    ).offset(skip).limit(limit).all()
+    
+    # Convert to dictionaries
+    cases_data = []
+    for case in cases:
+        case_dict = {
+            "id": case.id,
+            "case_name": case.case_name,
+            "case_date": case.case_date.isoformat() if case.case_date else None,
+            "court": case.court,
+            "docket_number": case.docket_number,
+            "judges_names": case.judges_names,
+            "opinion_text": case.opinion_text,
+            "dissent_text": case.dissent_text,
+            "concur_text": case.concur_text,
+            "state": case.state,
+            "election_type": case.election_type,
+            "party_who_appointed_judge": case.party_who_appointed_judge,
+        }
+        cases_data.append(case_dict)
+    
+    return cases_data
