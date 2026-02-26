@@ -22,7 +22,9 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **JWT Authentication** with secure password hashing  
 ✅ **Database-Driven Architecture** (5-table relational schema)  
 ✅ **RESTful API** with auto-generated documentation  
-🚧 **Parquet File Processing** (Coming soon)  
+✅ **Parquet File Processing** with automated parsing  
+✅ **Cardozo Law Branded UI** (professional design system)  
+✅ **Dynamic Case Viewer** with column selector  
 🚧 **AI Integration** (Claude/GPT-4) (Coming soon)  
 🚧 **Data Visualization Dashboard** (Coming soon)
 
