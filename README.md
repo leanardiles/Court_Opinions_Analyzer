@@ -1,9 +1,9 @@
 # Court Opinions Analyzer
 
-ML-powered web application for analyzing US court decisions on the Purcell Principle with human-in-the-loop verification.
+ML-powered web application for analyzing US court decisions with human-in-the-loop verification.
 
-**Capstone Project** | Cardozo Law School - Katz School  
-**Developer:** Leandro Ardiles  
+**Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)
+**Developer:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba 
 **Status:** 🚧 In Development
 
 ---
@@ -23,8 +23,12 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Database-Driven Architecture** (5-table relational schema)  
 ✅ **RESTful API** with auto-generated documentation  
 ✅ **Parquet File Processing** with automated parsing  
-✅ **Cardozo Law Branded UI** (professional design system)  
+✅ **Project Management** with CRUD operations and scholar assignment  
+✅ **Parquet Upload & Removal** (one file per project)  
 ✅ **Dynamic Case Viewer** with column selector  
+✅ **Cardozo Law Branded UI** (professional design system)  
+✅ **Clickable Project Cards** navigate to project details  
+🚧 **Case Assignment Workflow** (Coming next)  
 🚧 **AI Integration** (Claude/GPT-4) (Coming soon)  
 🚧 **Data Visualization Dashboard** (Coming soon)
 
@@ -151,9 +155,18 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 
 ### User Roles
 
-- **Admin:** Create projects, upload data, assign validators
-- **Scholar:** Review validator work, access analytics
+- **Admin:** Create projects, upload data, assign scholars, manage system
+- **Scholar:** Manage assigned projects, assign validators, review results
 - **Validator:** Verify AI-generated analyses for assigned cases
+
+### Test Accounts
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@cardozo.edu | admin12345 |
+| Scholar | scholar1@cardozo.edu | scholar123 |
+| Validator (TA1) | ta1@cardozo.edu | validator123 |
+| Validator (TA2) | ta2@cardozo.edu | validator123 |
 
 ---
 
@@ -253,8 +266,19 @@ git push
 - [x] Case viewer with dynamic column selector
 - [x] Reusable Header component with dual navigation
 
+**✅ Completed (Session 3 - Feb 27, 2026)**
+- [x] End-to-end testing and bug fixes
+- [x] Delete project functionality with cascade
+- [x] Clickable project cards navigation
+- [x] ProjectDetailPage with cases view
+- [x] Remove Parquet file functionality
+- [x] Scholar assignment to projects
+- [x] UI/UX improvements (login, modal, dashboard)
+- [x] Created scholar1 and ta2 test users
+- [x] Scholar visibility in dashboard and project details
+
 **🚧 In Progress / Next Steps**
-- [ ] Admin: Case assignment workflow
+- [ ] Admin/Scholar: Case assignment workflow
 - [ ] Validator: Case viewing interface
 - [ ] Validator: Verification submission
 - [ ] AI integration (Claude/GPT-4)
