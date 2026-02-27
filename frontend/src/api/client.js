@@ -52,6 +52,12 @@ export const projectsAPI = {
     const response = await apiClient.get(`/projects/${projectId}`);
     return response.data;
   },
+  
+  // 🆕 ADD THIS: Delete method
+  delete: async (projectId) => {
+    await apiClient.delete(`/projects/${projectId}`);
+    return { success: true };
+  },
 };
 
 // Upload API
