@@ -49,6 +49,29 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteProject = async (projectId, projectName) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${projectName}"?\n\n` +
+      `This will permanently delete:\n` +
+      `- The project\n` +
+      `- All ${projects.find(p => p.id === projectId)?.total_cases || 0} court cases\n` +
+      `- All uploaded files\n\n` +
+      `This action CANNOT be undone.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+    
+    try {
+      await projectsAPI.delete(projectId);
+      alert('Project deleted successfully!');
+      loadData();
+    } catch (err) {
+      alert('Failed to delete project: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/');
@@ -64,7 +87,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Use Header Component */}
       <Header user={user} onLogout={handleLogout} />
 
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -81,12 +103,16 @@ export default function Dashboard() {
           <div className="mb-6">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="btn-primary"
+              className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow flex items-center gap-2"
             >
-              + Create New Project
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create New Project
             </button>
           </div>
         )}
+
 
         <div className="space-y-4">
           {projects.length === 0 ? (
@@ -98,89 +124,113 @@ export default function Dashboard() {
               </p>
             </div>
           ) : (
-            projects.map((project) => (
-              <div key={project.id} className="card hover:shadow-lg transition">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-serif font-bold text-cardozo-dark mb-2">
-                      {project.name}
-                    </h3>
-                    {project.description && (
-                      <p className="text-gray-600 mb-3">{project.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="font-medium">{project.total_cases} cases</span>
-                      <span>·</span>
-                      <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                      <span>·</span>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        project.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {project.is_active ? 'Active' : 'Inactive'}
-                      </span>
+            projects.map((project, index) => {
+              const colors = [
+                { bg: 'bg-blue-50', border: 'border-cardozo-blue' },
+                { bg: 'bg-amber-50', border: 'border-cardozo-gold' },
+                { bg: 'bg-green-50', border: 'border-green-600' },
+                { bg: 'bg-purple-50', border: 'border-purple-600' },
+                { bg: 'bg-pink-50', border: 'border-pink-600' },
+              ];
+              const colorScheme = colors[index % colors.length];
+
+              return (
+                <div 
+                  key={project.id} 
+                  className={`card hover:shadow-lg transition overflow-hidden p-0 ${colorScheme.bg} border-t-4 ${colorScheme.border} relative`}
+                >
+                  {/* Clickable area - entire card except delete button */}
+                  <div 
+                    onClick={() => navigate(`/project/${project.id}`)}
+                    className="p-6 cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-serif font-bold text-cardozo-dark mb-2">
+                          {project.name}
+                        </h3>
+                        {project.description && (
+                          <p className="text-gray-600 mb-3">{project.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span className="font-medium">{project.total_cases} cases</span>
+                          <span>·</span>
+                          <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
+                          <span>·</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            project.is_active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {project.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={() => navigate(`/upload/${project.id}`)}
-                        className="px-4 py-2 bg-cardozo-gold text-cardozo-dark rounded-lg hover:bg-[#E5A619] transition font-semibold text-sm"
-                      >
-                        Upload File
-                      </button>
-                    )}
+                  
+                  {/* Delete button - positioned absolutely to avoid triggering card click */}
+                  {user?.role === 'admin' && (
                     <button
-                      onClick={() => navigate(`/view-cases/${project.id}`)}
-                      className="btn-primary text-sm"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card click
+                        handleDeleteProject(project.id, project.name);
+                      }}
+                      className="absolute top-4 right-4 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
                     >
-                      View Cases
+                      Delete
                     </button>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </main>
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md">
-            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-6">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-lg">
+            <h2 className="text-3xl font-serif font-bold text-cardozo-dark mb-8">
               Create New Project
             </h2>
             <form onSubmit={handleCreateProject} className="space-y-6">
               <div>
-                <label className="label">Project Name</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Project Name
+                </label>
                 <input
                   type="text"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  className="input"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue transition text-gray-900"
                   placeholder="Purcell Analysis 2024"
                   required
                 />
               </div>
               <div>
-                <label className="label">Description (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Description (optional)
+                </label>
                 <textarea
                   value={newProjectDesc}
                   onChange={(e) => setNewProjectDesc(e.target.value)}
-                  className="input"
-                  rows="3"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue transition text-gray-900 resize-none"
+                  rows="4"
                   placeholder="Analysis of court decisions on Purcell Principle"
                 />
               </div>
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="submit" 
+                  className="flex-1 px-6 py-3 bg-cardozo-gold text-cardozo-dark rounded-lg font-semibold hover:bg-[#E5A619] transition shadow-sm"
+                >
                   Create Project
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="btn-secondary flex-1"
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition shadow-sm"
                 >
                   Cancel
                 </button>

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 # ============================================================================
 # USER SCHEMAS
@@ -80,3 +80,17 @@ class ProjectResponse(ProjectBase):
     
     # Pydantic V2 configuration
     model_config = ConfigDict(from_attributes=True)
+
+# ============================================================================
+# UPLOAD SCHEMAS
+# ============================================================================
+
+class UploadSummary(BaseModel):
+    """Response after uploading and parsing Parquet file"""
+    success: bool
+    project_id: int
+    filename: str
+    total_rows: int
+    cases_imported: int
+    errors: List[str] = []
+    file_size_mb: float

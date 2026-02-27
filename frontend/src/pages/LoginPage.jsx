@@ -34,7 +34,7 @@ export default function LoginPage() {
             Court Opinions Analyzer
           </h1>
           <div className="w-16 h-1 bg-cardozo-gold mx-auto mb-4"></div>
-          <p className="text-gray-600">Cardozo Law School</p>
+          <p className="text-lg font-serif text-cardozo-dark">Cardozo Law School</p>
         </div>
 
         {error && (
@@ -45,24 +45,28 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="label">Email Address</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              Email Address
+            </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue transition text-gray-900"
               placeholder="your.email@cardozo.edu"
               required
             />
           </div>
 
           <div>
-            <label className="label">Password</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue transition text-gray-900"
               placeholder="••••••••"
               required
             />
@@ -71,7 +75,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full"
+            className="w-full px-6 py-3 bg-cardozo-blue text-white rounded-lg font-semibold hover:bg-[#005A94] transition shadow-md disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
@@ -92,14 +96,39 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="pt-3 border-t border-gray-100">
-              <p className="font-medium text-gray-900">Validator:</p>
+              <p className="font-medium text-gray-900">Scholar:</p>
               <div className="flex justify-between text-gray-600 mt-1">
                 <span>Email:</span>
-                <span>ta1@cardozo.edu</span>
+                <span>scholar1@cardozo.edu</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Password:</span>
-                <span className="font-mono">validator123</span>
+                <span className="font-mono">scholar123</span>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-gray-100">
+              <p className="font-medium text-gray-900">Validators:</p>
+              <div className="mt-1 space-y-2">
+                <div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>TA1:</span>
+                    <span>ta1@cardozo.edu</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600 text-xs">
+                    <span>Password:</span>
+                    <span className="font-mono">validator123</span>
+                  </div>
+                </div>
+                <div className="pt-1">
+                  <div className="flex justify-between text-gray-600">
+                    <span>TA2:</span>
+                    <span>ta2@cardozo.edu</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600 text-xs">
+                    <span>Password:</span>
+                    <span className="font-mono">validator123</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

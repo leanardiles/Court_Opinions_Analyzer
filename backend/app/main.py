@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, projects
+from app.routers import auth, projects, uploads
 
 app = FastAPI(
     title="Court Opinions Analyzer API",
@@ -30,6 +30,10 @@ app.include_router(auth.router)
 
 # Include project management routes
 app.include_router(projects.router)
+
+# Include file upload routes
+app.include_router(uploads.router)
+
 
 # ============================================================================
 # ROOT ENDPOINT

@@ -7,10 +7,9 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models import User, Project
+from app.models import User, Project, CourtCase
 from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
-from app.dependencies import require_admin
-from app.routers.auth import get_current_user
+from app.dependencies import require_admin, get_current_user
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -171,22 +170,33 @@ def delete_project(
     admin: User = Depends(require_admin)
 ):
     """
-    Delete a project (Admin only).
-    
-    This will cascade delete all associated court cases, assignments, and verifications.
+    Delete a project and all associated cases.
+    Admin only.
     """
+    # Get project
     project = db.query(Project).filter(Project.id == project_id).first()
-    
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found"
         )
     
-    db.delete(project)
-    db.commit()
-    
-    return None
+    try:
+        # Delete all associated cases first
+        db.query(CourtCase).filter(CourtCase.project_id == project_id).delete()
+        
+        # Then delete the project
+        db.delete(project)
+        db.commit()
+        
+        return None  # 204 No Content
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete project: {str(e)}"
+        )
 
 @router.get("/{project_id}/cases")
 def get_project_cases(

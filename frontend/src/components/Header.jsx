@@ -45,10 +45,10 @@ export default function Header({ user, onLogout }) {
             
             {user && (
               <div className="flex items-center gap-6 text-white text-sm">
-                <span className="opacity-90">{user.email}</span>
-                <span className="px-3 py-1 bg-white/10 rounded capitalize">
-                  {user.role}
-                </span>
+                <div className="text-right">
+                  <div className="font-medium">{user.email}</div>
+                  <div className="text-xs text-gray-300 capitalize">{user.role}</div>
+                </div>
                 <button
                   onClick={onLogout}
                   className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition font-medium"
@@ -57,6 +57,8 @@ export default function Header({ user, onLogout }) {
                 </button>
               </div>
             )}
+
+
           </div>
         </div>
       </header>

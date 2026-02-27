@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
+import ProjectDetailPage from './pages/ProjectDetailPage';  // ADD THIS
 import UploadPage from './pages/UploadPage';
 import ViewCasesPage from './pages/ViewCasesPage';
 
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/project/:projectId" element={<ProjectDetailPage />} />  {/* ADD THIS */}
         <Route path="/upload/:projectId" element={<UploadPage />} />
         <Route path="/view-cases/:projectId" element={<ViewCasesPage />} />
         <Route path="*" element={<Navigate to="/" />} />
