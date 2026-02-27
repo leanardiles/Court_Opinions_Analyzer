@@ -20,6 +20,9 @@ export default function ProjectDetailPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [showScholarModal, setShowScholarModal] = useState(false);
+  const [scholars, setScholars] = useState([]);
+  const [loadingScholars, setLoadingScholars] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -62,7 +65,7 @@ export default function ProjectDetailPage() {
       alert('File uploaded successfully!');
       setShowUploadModal(false);
       setFile(null);
-      loadData(); // Reload data
+      loadData();
     } catch (err) {
       alert('Upload failed: ' + (err.response?.data?.detail || 'Unknown error'));
     } finally {
@@ -72,22 +75,45 @@ export default function ProjectDetailPage() {
 
   const handleRemoveParquet = async () => {
     if (!window.confirm(
-        `Are you sure you want to remove the uploaded Parquet file?\n\n` +
-        `This will delete all ${cases.length} cases from this project.\n\n` +
-        `This action CANNOT be undone.`
+      `Are you sure you want to remove the uploaded Parquet file?\n\n` +
+      `This will delete all ${cases.length} cases from this project.\n\n` +
+      `This action CANNOT be undone.`
     )) {
-        return;
+      return;
     }
 
     try {
-        const result = await uploadAPI.removeParquet(projectId);
-        alert(result.message || 'Parquet file removed successfully!');
-        loadData(); // Reload data - button will switch back to Upload
+      const result = await uploadAPI.removeParquet(projectId);
+      alert(result.message || 'Parquet file removed successfully!');
+      loadData();
     } catch (err) {
-        alert('Failed to remove Parquet file: ' + (err.response?.data?.detail || 'Unknown error'));
+      alert('Failed to remove Parquet file: ' + (err.response?.data?.detail || 'Unknown error'));
     }
-    };
+  };
 
+  const loadScholars = async () => {
+    setLoadingScholars(true);
+    try {
+      const scholarData = await authAPI.getScholars();
+      setScholars(scholarData);
+      setShowScholarModal(true);
+    } catch (err) {
+      alert('Failed to load scholars: ' + (err.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setLoadingScholars(false);
+    }
+  };
+
+  const handleAssignScholar = async (scholarId) => {
+    try {
+      const result = await projectsAPI.assignScholar(projectId, scholarId);
+      alert(result.message || 'Scholar assigned successfully!');
+      setShowScholarModal(false);
+      loadData();
+    } catch (err) {
+      alert('Failed to assign scholar: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
 
   const toggleColumn = (column) => {
     setSelectedColumns((prev) =>
@@ -135,7 +161,6 @@ export default function ProjectDetailPage() {
       <Header user={user} onLogout={() => navigate('/')} />
 
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Back button */}
         <button
           onClick={() => navigate('/dashboard')}
           className="text-cardozo-blue hover:text-[#005A94] mb-4 font-medium"
@@ -143,48 +168,63 @@ export default function ProjectDetailPage() {
           ← Back to Dashboard
         </button>
 
-        {/* Project Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-serif font-bold text-cardozo-dark">
-            {project?.name}
-          </h1>
-          <div className="w-24 h-1 bg-cardozo-gold mt-2 mb-4"></div>
-          {project?.description && (
-            <p className="text-gray-600">{project.description}</p>
-          )}
-          <p className="text-sm text-gray-500 mt-2">
-            {cases.length} cases · Created {new Date(project?.created_at).toLocaleDateString()}
-          </p>
+            <h1 className="text-3xl font-serif font-bold text-cardozo-dark">
+                {project?.name}
+            </h1>
+            <div className="w-24 h-1 bg-cardozo-gold mt-2 mb-4"></div>
+            {project?.description && (
+                <p className="text-gray-600">{project.description}</p>
+            )}
+            <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
+                <span>{cases.length} cases</span>
+                <span>·</span>
+                <span>Created {new Date(project?.created_at).toLocaleDateString()}</span>
+                {project?.scholar_id && (
+                <>
+                    <span>·</span>
+                    <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-cardozo-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="font-medium text-cardozo-blue">
+                        Scholar: {scholars.find(s => s.id === project.scholar_id)?.email || 
+                                scholars.find(s => s.id === project.scholar_id)?.full_name || 
+                                'Assigned'}
+                    </span>
+                    </span>
+                </>
+                )}
+            </div>
         </div>
 
-        {/* Action Buttons */}
         {user?.role === 'admin' && (
-        <div className="mb-6 flex gap-3">
-            {/* Show Upload button only if no cases exist */}
+          <div className="mb-6 flex gap-3">
             {cases.length === 0 ? (
-            <button
+              <button
                 onClick={() => setShowUploadModal(true)}
                 className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
-            >
+              >
                 Upload Parquet File
-            </button>
+              </button>
             ) : (
-            <button
+              <button
                 onClick={handleRemoveParquet}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition shadow text-sm"
-            >
+              >
                 Remove Parquet File
-            </button>
+              </button>
             )}
             <button
-            className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
+              onClick={loadScholars}
+              disabled={loadingScholars}
+              className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm disabled:opacity-50"
             >
-            Assign Scholar
+              {loadingScholars ? 'Loading...' : 'Assign Scholar'}
             </button>
-        </div>
+          </div>
         )}
 
-        {/* Column Selector */}
         {cases.length > 0 && (
           <div className="card mb-6">
             <div className="flex justify-between items-center mb-4">
@@ -219,7 +259,6 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Cases Table */}
         <div className="card overflow-hidden p-0">
           {cases.length === 0 ? (
             <div className="p-12 text-center">
@@ -272,7 +311,6 @@ export default function ProjectDetailPage() {
         )}
       </main>
 
-      {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md">
@@ -311,6 +349,61 @@ export default function ProjectDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showScholarModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-6">
+              Assign Scholar to Project
+            </h2>
+            
+            {project?.scholar_id && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Current scholar: <span className="font-semibold">
+                    {scholars.find(s => s.id === project.scholar_id)?.email || 'Unknown'}
+                  </span>
+                </p>
+              </div>
+            )}
+            
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {scholars.length === 0 ? (
+                <p className="text-gray-600 text-center py-4">No scholars available</p>
+              ) : (
+                scholars.map((scholar) => (
+                  <button
+                    key={scholar.id}
+                    onClick={() => handleAssignScholar(scholar.id)}
+                    className={`w-full p-4 text-left rounded-lg border-2 transition ${
+                      project?.scholar_id === scholar.id
+                        ? 'border-cardozo-blue bg-blue-50'
+                        : 'border-gray-200 hover:border-cardozo-blue hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900">{scholar.email}</div>
+                    {scholar.full_name && (
+                      <div className="text-sm text-gray-600">{scholar.full_name}</div>
+                    )}
+                    {project?.scholar_id === scholar.id && (
+                      <div className="text-xs text-cardozo-blue mt-1 font-medium">
+                        Currently Assigned
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+            
+            <button
+              onClick={() => setShowScholarModal(false)}
+              className="mt-6 w-full px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

@@ -12,6 +12,8 @@ from app.models import User, UserRole
 from app.schemas import UserCreate, UserResponse, UserLogin, Token
 from app.utils.auth import hash_password, verify_password, create_access_token, decode_access_token
 from app.core.config import settings
+from typing import List
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -155,3 +157,15 @@ def get_me(current_user: User = Depends(get_current_user)):
         Current user object
     """
     return current_user
+
+@router.get("/users/scholars", response_model=List[UserResponse])
+def get_all_scholars(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all users with scholar role.
+    Available to all authenticated users.
+    """
+    scholars = db.query(User).filter(User.role == "scholar").all()
+    return scholars

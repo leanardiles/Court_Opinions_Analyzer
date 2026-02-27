@@ -244,3 +244,48 @@ def get_project_cases(
         cases_data.append(case_dict)
     
     return cases_data
+
+
+@router.patch("/{project_id}/assign-scholar")
+def assign_scholar(
+    project_id: int,
+    scholar_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """
+    Assign a scholar to a project.
+    Admin only.
+    """
+    # Verify project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+    
+    # Verify scholar exists and has scholar role
+    scholar = db.query(User).filter(User.id == scholar_id).first()
+    if not scholar:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scholar {scholar_id} not found"
+        )
+    
+    if scholar.role != "scholar":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User {scholar.email} is not a scholar"
+        )
+    
+    # Assign scholar
+    project.scholar_id = scholar_id
+    db.commit()
+    db.refresh(project)
+    
+    return {
+        "success": True,
+        "message": f"Scholar {scholar.email} assigned to project {project.name}",
+        "project": project
+    }

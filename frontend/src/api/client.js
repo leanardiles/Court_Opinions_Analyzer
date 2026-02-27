@@ -34,6 +34,13 @@ export const authAPI = {
     const response = await apiClient.get('/auth/me');
     return response.data;
   },
+
+  //Get all scholars
+  getScholars: async () => {
+    const response = await apiClient.get('/auth/users/scholars');
+    return response.data;
+
+  },
 };
 
 // Projects API
@@ -53,10 +60,16 @@ export const projectsAPI = {
     return response.data;
   },
   
-  // 🆕 ADD THIS: Delete method
   delete: async (projectId) => {
     await apiClient.delete(`/projects/${projectId}`);
     return { success: true };
+  },
+
+  assignScholar: async (projectId, scholarId) => {
+    const response = await apiClient.patch(
+      `/projects/${projectId}/assign-scholar?scholar_id=${scholarId}`
+    );
+    return response.data;
   },
 };
 
