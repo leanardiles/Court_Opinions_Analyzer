@@ -77,6 +77,14 @@ export const uploadAPI = {
     );
     return response.data;
   },
+  
+  // 🆕 ADD THIS: Remove Parquet file
+  removeParquet: async (projectId) => {
+    const response = await apiClient.delete(
+      `/uploads/projects/${projectId}/parquet`
+    );
+    return response.data;
+  },
 };
 
 // Cases API

@@ -70,6 +70,25 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleRemoveParquet = async () => {
+    if (!window.confirm(
+        `Are you sure you want to remove the uploaded Parquet file?\n\n` +
+        `This will delete all ${cases.length} cases from this project.\n\n` +
+        `This action CANNOT be undone.`
+    )) {
+        return;
+    }
+
+    try {
+        const result = await uploadAPI.removeParquet(projectId);
+        alert(result.message || 'Parquet file removed successfully!');
+        loadData(); // Reload data - button will switch back to Upload
+    } catch (err) {
+        alert('Failed to remove Parquet file: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+    };
+
+
   const toggleColumn = (column) => {
     setSelectedColumns((prev) =>
       prev.includes(column)
@@ -141,12 +160,22 @@ export default function ProjectDetailPage() {
         {/* Action Buttons */}
         {user?.role === 'admin' && (
         <div className="mb-6 flex gap-3">
+            {/* Show Upload button only if no cases exist */}
+            {cases.length === 0 ? (
             <button
-            onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
+                onClick={() => setShowUploadModal(true)}
+                className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
             >
-            Upload Parquet File
+                Upload Parquet File
             </button>
+            ) : (
+            <button
+                onClick={handleRemoveParquet}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition shadow text-sm"
+            >
+                Remove Parquet File
+            </button>
+            )}
             <button
             className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
             >

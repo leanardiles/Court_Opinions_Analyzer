@@ -139,3 +139,53 @@ def get_cases_count(
     """
     count = db.query(CourtCase).filter(CourtCase.project_id == project_id).count()
     return {"project_id": project_id, "total_cases": count}
+
+
+@router.delete("/projects/{project_id}/parquet")
+def remove_parquet(
+    project_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """
+    Remove Parquet file and all associated cases from a project.
+    Admin only.
+    """
+    # Verify project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+    
+    try:
+        # Delete all cases for this project
+        cases_deleted = db.query(CourtCase).filter(
+            CourtCase.project_id == project_id
+        ).delete()
+        
+        # Delete the physical file if it exists
+        if project.parquet_filepath:
+            file_path = Path(project.parquet_filepath)
+            if file_path.exists():
+                file_path.unlink()
+        
+        # Update project metadata
+        project.parquet_filename = None
+        project.parquet_filepath = None
+        project.total_cases = 0
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Removed Parquet file and deleted {cases_deleted} cases"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove Parquet file: {str(e)}"
+        )
