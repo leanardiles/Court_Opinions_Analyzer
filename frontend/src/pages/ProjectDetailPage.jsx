@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { authAPI, projectsAPI, casesAPI, uploadAPI } from '../api/client';
+import { authAPI, projectsAPI, casesAPI, uploadAPI, modulesAPI } from '../api/client';
 import Header from '../components/Header';
 
 export default function ProjectDetailPage() {
@@ -23,10 +23,29 @@ export default function ProjectDetailPage() {
   const [showScholarModal, setShowScholarModal] = useState(false);
   const [scholars, setScholars] = useState([]);
   const [loadingScholars, setLoadingScholars] = useState(false);
+  const [modules, setModules] = useState([]);
+  const [showModuleModal, setShowModuleModal] = useState(false);
+  const [moduleFormData, setModuleFormData] = useState({
+    module_name: '',
+    question_text: '',
+    answer_type: 'multiple_choice',
+    answer_options: ['', ''],
+    module_context: '',
+    sample_size: 20
+  });
 
   useEffect(() => {
     loadData();
   }, [projectId]);
+
+  const loadModules = async () => {
+    try {
+      const modulesData = await modulesAPI.list(projectId);
+      setModules(modulesData);
+    } catch (err) {
+      console.error('Failed to load modules:', err);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -39,6 +58,11 @@ export default function ProjectDetailPage() {
       setUser(userData);
       setProject(projectData);
       setCases(casesData);
+
+      // Load modules if scholar
+      if (userData.role === 'scholar') {
+        await loadModules();
+      }
 
       if (casesData.length > 0) {
         const columns = Object.keys(casesData[0]).filter(
@@ -115,7 +139,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-
   const handleUnassignScholar = async () => {
     if (!window.confirm(
       `Unassign ${project?.scholar_email} from this project?\n\n` +
@@ -125,7 +148,6 @@ export default function ProjectDetailPage() {
     }
 
     try {
-      // Use -1 to signal "unassign"
       await projectsAPI.assignScholar(projectId, -1);
       alert('Scholar unassigned successfully!');
       loadData();
@@ -133,7 +155,6 @@ export default function ProjectDetailPage() {
       alert('Failed to unassign scholar: ' + (err.response?.data?.detail || 'Unknown error'));
     }
   };
-
 
   const handleSendToScholar = async () => {
     if (!window.confirm(
@@ -172,7 +193,7 @@ export default function ProjectDetailPage() {
   const handleAIModelChange = async (newModel) => {
     try {
       await projectsAPI.updateAIModel(projectId, newModel);
-      loadData(); // Reload to show updated model
+      loadData();
     } catch (err) {
       alert('Failed to update AI model: ' + (err.response?.data?.detail || 'Unknown error'));
     }
@@ -199,6 +220,73 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleCreateModule = async () => {
+    if (!moduleFormData.module_name.trim()) {
+      alert('Please enter a module name');
+      return;
+    }
+    if (!moduleFormData.question_text.trim()) {
+      alert('Please enter a question');
+      return;
+    }
+    if (moduleFormData.answer_type === 'multiple_choice') {
+      const validOptions = moduleFormData.answer_options.filter(opt => opt.trim());
+      if (validOptions.length < 2) {
+        alert('Multiple choice questions need at least 2 options');
+        return;
+      }
+    }
+
+    try {
+      const payload = {
+        ...moduleFormData,
+        answer_options: moduleFormData.answer_type === 'multiple_choice' 
+          ? moduleFormData.answer_options.filter(opt => opt.trim())
+          : null
+      };
+      
+      await modulesAPI.create(projectId, payload);
+      alert('Module created successfully!');
+      setShowModuleModal(false);
+      
+      setModuleFormData({
+        module_name: '',
+        question_text: '',
+        answer_type: 'multiple_choice',
+        answer_options: ['', ''],
+        module_context: '',
+        sample_size: 20
+      });
+      
+      loadModules();
+    } catch (err) {
+      alert('Failed to create module: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleAddOption = () => {
+    setModuleFormData({
+      ...moduleFormData,
+      answer_options: [...moduleFormData.answer_options, '']
+    });
+  };
+
+  const handleRemoveOption = (index) => {
+    const newOptions = moduleFormData.answer_options.filter((_, i) => i !== index);
+    setModuleFormData({
+      ...moduleFormData,
+      answer_options: newOptions
+    });
+  };
+
+  const handleOptionChange = (index, value) => {
+    const newOptions = [...moduleFormData.answer_options];
+    newOptions[index] = value;
+    setModuleFormData({
+      ...moduleFormData,
+      answer_options: newOptions
+    });
+  };
 
   const toggleColumn = (column) => {
     setSelectedColumns((prev) =>
@@ -284,7 +372,6 @@ export default function ProjectDetailPage() {
             {/* Show Admin and Validators for Scholar */}
             {user?.role === 'scholar' && (
               <>
-                {/* Admin */}
                 {project?.admin_email && (
                   <>
                     <span>·</span>
@@ -299,7 +386,6 @@ export default function ProjectDetailPage() {
                   </>
                 )}
                 
-                {/* Validators */}
                 <span>·</span>
                 <span className="flex items-center gap-2">
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,7 +399,6 @@ export default function ProjectDetailPage() {
             )}
           </div>
         </div>
-
 
         {/* Action Buttons - Admin */}
         {user?.role === 'admin' && (
@@ -338,10 +423,9 @@ export default function ProjectDetailPage() {
                   </button>
                 )}
                 
-                {/* Assign/Unassign Scholar Button - only show before project is sent */}
+                {/* Assign/Unassign Scholar Button */}
                 {project?.status === 'draft' || project?.status === 'ready' ? (
                   project?.scholar_id ? (
-                    // Unassign button (yellow) when scholar is assigned
                     <button
                       onClick={handleUnassignScholar}
                       className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 transition shadow text-sm"
@@ -349,7 +433,6 @@ export default function ProjectDetailPage() {
                       Unassign Scholar
                     </button>
                   ) : (
-                    // Assign button (blue) when no scholar assigned
                     <button
                       onClick={loadScholars}
                       disabled={loadingScholars}
@@ -363,7 +446,7 @@ export default function ProjectDetailPage() {
 
               {/* Right side buttons */}
               <div className="flex gap-3">
-                {/* Send to Scholar Button - only show when status is READY */}
+                {/* Send to Scholar Button */}
                 {project?.status === 'ready' && (
                   <button
                     onClick={handleSendToScholar}
@@ -381,7 +464,7 @@ export default function ProjectDetailPage() {
                   🗑️ Delete Project
                 </button>
               </div>
-            </div>      
+            </div>
 
             {/* Show Parquet filename if uploaded */}
             {project?.parquet_filename && (
@@ -466,7 +549,7 @@ export default function ProjectDetailPage() {
         {/* Action Buttons - Scholar */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
           <div className="mb-6">
-            {/* Launch Project Button - only show when status is ACTIVE */}
+            {/* Launch Project Button */}
             {project?.status === 'active' && (
               <button
                 onClick={handleLaunchProject}
@@ -546,6 +629,70 @@ export default function ProjectDetailPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modules Section - Scholar only */}
+        {user?.role === 'scholar' && project?.scholar_id === user?.id && (
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
+                Research Questions (Modules)
+              </h2>
+              <button
+                onClick={() => setShowModuleModal(true)}
+                className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
+              >
+                + Add Module
+              </button>
+            </div>
+
+            {modules.length === 0 ? (
+              <div className="card text-center py-12">
+                <p className="text-gray-600 mb-4">No modules created yet</p>
+                <p className="text-sm text-gray-500">Create your first research question to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {modules.map((module) => (
+                  <div key={module.id} className="card hover:shadow-lg transition">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="px-2 py-1 bg-cardozo-blue text-white rounded text-xs font-semibold">
+                            Module {module.module_number}
+                          </span>
+                          <h3 className="text-lg font-semibold text-cardozo-dark">
+                            {module.module_name}
+                          </h3>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            module.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                            module.status === 'ready_for_validation' ? 'bg-green-100 text-green-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {module.status.replace(/_/g, ' ').toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        <p className="text-gray-700 mb-3">{module.question_text}</p>
+                        
+                        <div className="flex gap-4 text-sm text-gray-600">
+                          <span>Type: <span className="font-medium">{module.answer_type.replace(/_/g, ' ')}</span></span>
+                          <span>•</span>
+                          <span>Sample Size: <span className="font-medium">{module.sample_size} cases</span></span>
+                          {module.answer_options && (
+                            <>
+                              <span>•</span>
+                              <span>Options: <span className="font-medium">{module.answer_options.length}</span></span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -730,6 +877,159 @@ export default function ProjectDetailPage() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create Module Modal */}
+      {showModuleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl my-8">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-6">
+              Create Research Question (Module)
+            </h2>
+            
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              {/* Module Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Module Name
+                </label>
+                <input
+                  type="text"
+                  value={moduleFormData.module_name}
+                  onChange={(e) => setModuleFormData({...moduleFormData, module_name: e.target.value})}
+                  placeholder="e.g., Election Type Analysis"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                />
+              </div>
+
+              {/* Question Text */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Research Question
+                </label>
+                <textarea
+                  value={moduleFormData.question_text}
+                  onChange={(e) => setModuleFormData({...moduleFormData, question_text: e.target.value})}
+                  placeholder="e.g., What is the election at issue?"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                />
+              </div>
+
+              {/* Answer Type */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Answer Type
+                </label>
+                <select
+                  value={moduleFormData.answer_type}
+                  onChange={(e) => setModuleFormData({...moduleFormData, answer_type: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                >
+                  <option value="yes_no">Yes/No</option>
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="integer">Integer (Number)</option>
+                  <option value="text">Free Text</option>
+                  <option value="date">Date</option>
+                </select>
+              </div>
+
+              {/* Answer Options (if multiple choice) */}
+              {moduleFormData.answer_type === 'multiple_choice' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Answer Options
+                  </label>
+                  <div className="space-y-2">
+                    {moduleFormData.answer_options.map((option, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={option}
+                          onChange={(e) => handleOptionChange(index, e.target.value)}
+                          placeholder={`Option ${index + 1}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                        />
+                        {moduleFormData.answer_options.length > 2 && (
+                          <button
+                            onClick={() => handleRemoveOption(index)}
+                            className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={handleAddOption}
+                      className="text-sm text-cardozo-blue hover:text-[#005A94] font-medium"
+                    >
+                      + Add Option
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Module Context */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Module-Specific Context (Optional)
+                </label>
+                <textarea
+                  value={moduleFormData.module_context}
+                  onChange={(e) => setModuleFormData({...moduleFormData, module_context: e.target.value})}
+                  placeholder="Provide specific guidance for this question... (Markdown supported)"
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue font-mono text-sm"
+                />
+              </div>
+
+              {/* Sample Size */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Sample Size (Cases to Verify)
+                </label>
+                <input
+                  type="number"
+                  value={moduleFormData.sample_size}
+                  onChange={(e) => setModuleFormData({...moduleFormData, sample_size: parseInt(e.target.value)})}
+                  min="1"
+                  max="1000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Number of cases to randomly sample from {project?.total_cases || 0} total cases
+                </p>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleCreateModule}
+                className="flex-1 px-6 py-2.5 bg-cardozo-gold text-white rounded-lg font-semibold hover:bg-yellow-600 transition"
+              >
+                Create Module
+              </button>
+              <button
+                onClick={() => {
+                  setShowModuleModal(false);
+                  setModuleFormData({
+                    module_name: '',
+                    question_text: '',
+                    answer_type: 'multiple_choice',
+                    answer_options: ['', ''],
+                    module_context: '',
+                    sample_size: 20
+                  });
+                }}
+                className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

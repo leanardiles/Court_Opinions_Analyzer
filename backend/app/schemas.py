@@ -111,3 +111,66 @@ class UploadSummary(BaseModel):
     cases_imported: int
     errors: List[str] = []
     file_size_mb: float
+
+# ============================================================================
+# PROJECT CONTEXT SCHEMAS
+# ============================================================================
+
+class ProjectContextCreate(BaseModel):
+    """Schema for creating project context"""
+    context_text: str = Field(..., min_length=1)
+
+class ProjectContextResponse(BaseModel):
+    """Schema for project context responses"""
+    id: int
+    project_id: int
+    context_text: str
+    created_by: int
+    version: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# ============================================================================
+# VERIFICATION MODULE SCHEMAS
+# ============================================================================
+
+class VerificationModuleCreate(BaseModel):
+    """Schema for creating a verification module"""
+    module_name: str = Field(..., min_length=1, max_length=200)
+    question_text: str = Field(..., min_length=1)
+    answer_type: str = Field(..., pattern="^(yes_no|multiple_choice|integer|text|date)$")
+    answer_options: Optional[List[str]] = None  # Required if answer_type is "multiple_choice"
+    module_context: Optional[str] = None
+    sample_size: int = Field(..., gt=0, le=1000)  # Between 1 and 1000
+
+class VerificationModuleUpdate(BaseModel):
+    """Schema for updating a verification module"""
+    module_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    question_text: Optional[str] = Field(None, min_length=1)
+    answer_type: Optional[str] = Field(None, pattern="^(yes_no|multiple_choice|integer|text|date)$")
+    answer_options: Optional[List[str]] = None
+    module_context: Optional[str] = None
+    sample_size: Optional[int] = Field(None, gt=0, le=1000)
+
+class VerificationModuleResponse(BaseModel):
+    """Schema for verification module responses"""
+    id: int
+    project_id: int
+    module_number: int
+    module_name: str
+    question_text: str
+    answer_type: str
+    answer_options: Optional[List[str]] = None
+    module_context: Optional[str] = None
+    sample_size: int
+    status: str
+    ai_round: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    launched_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)

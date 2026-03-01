@@ -126,3 +126,31 @@ export const casesAPI = {
     return response.data;
   },
 };
+
+// Modules API
+export const modulesAPI = {
+  create: async (projectId, moduleData) => {
+    const response = await apiClient.post(`/modules/projects/${projectId}/modules`, moduleData);
+    return response.data;
+  },
+  
+  list: async (projectId) => {
+    const response = await apiClient.get(`/modules/projects/${projectId}/modules`);
+    return response.data;
+  },
+  
+  get: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}`);
+    return response.data;
+  },
+  
+  update: async (moduleId, moduleData) => {
+    const response = await apiClient.patch(`/modules/modules/${moduleId}`, moduleData);
+    return response.data;
+  },
+  
+  delete: async (moduleId) => {
+    await apiClient.delete(`/modules/modules/${moduleId}`);
+    return { success: true };
+  },
+};

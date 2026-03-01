@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import enum
+from datetime import datetime
 
 # ============================================================================
 # ENUMS
@@ -236,3 +237,248 @@ class Verification(Base):
     
     def __repr__(self):
         return f"<Verification(id={self.id}, assignment_id={self.assignment_id}, accuracy={self.accuracy_percentage}%)>"
+
+
+# ============================================================================
+# PROJECT CONTEXT
+# ============================================================================
+
+class ProjectContext(Base):
+    """
+    Project-wide context that applies to ALL modules.
+    Scholar writes this to guide AI across all questions.
+    """
+    __tablename__ = "project_contexts"
+    
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), unique=True)
+    
+    context_text = Column(Text)  # Markdown formatted
+    created_by = Column(Integer, ForeignKey("users.id"))
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    
+    version = Column(Integer, default=1)  # Track versions
+    
+    # Relationships
+    project = relationship("Project", backref="context")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+# ============================================================================
+# VERIFICATION MODULES (Research Questions)
+# ============================================================================
+
+class VerificationModule(Base):
+    """
+    A module = one research question within a project.
+    Scholar creates multiple modules per project.
+    """
+    __tablename__ = "verification_modules"
+    
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    
+    # Module identification
+    module_number = Column(Integer)  # 1, 2, 3...
+    module_name = Column(String)  # "Election Type Analysis"
+    
+    # Research question
+    question_text = Column(Text)  # "What is the election at issue?"
+    
+    # Answer configuration
+    answer_type = Column(String)  # "yes_no", "multiple_choice", "integer", "text", "date"
+    answer_options = Column(JSON)  # For multiple_choice: ["Primary", "General", ...]
+    
+    # Module-specific context
+    module_context = Column(Text)  # Markdown - specific guidance for THIS question
+    
+    # Sampling configuration
+    sample_size = Column(Integer)  # How many cases to analyze (e.g., 20, 30)
+    
+    # Status tracking
+    status = Column(String, default="draft")  
+    # "draft" → "sampling_complete" → "ai_analyzing" → "ready_for_validation" → 
+    # "validation_in_progress" → "validation_complete" → "approved"
+    
+    # AI execution tracking
+    ai_round = Column(Integer, default=1)  # Track which round of AI analysis
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+    launched_at = Column(DateTime)  # When scholar launched AI analysis
+    completed_at = Column(DateTime)  # When all validations done
+    approved_at = Column(DateTime)  # When scholar approved
+    
+    # Relationships
+    project = relationship("Project", backref="modules")
+
+
+# ============================================================================
+# CASE SAMPLING
+# ============================================================================
+
+class ModuleCaseSample(Base):
+    """
+    Links specific cases to a module.
+    Randomly sampled cases for a particular question.
+    """
+    __tablename__ = "module_case_samples"
+    
+    id = Column(Integer, primary_key=True)
+    module_id = Column(Integer, ForeignKey("verification_modules.id", ondelete="CASCADE"))
+    case_id = Column(Integer, ForeignKey("court_cases.id", ondelete="CASCADE"))
+    
+    # Sampling metadata
+    selected_at = Column(DateTime, default=datetime.utcnow)
+    sample_order = Column(Integer)  # 1, 2, 3...
+    
+    # Relationships
+    module = relationship("VerificationModule", backref="case_samples")
+    case = relationship("CourtCase")
+
+
+# ============================================================================
+# VALIDATOR ASSIGNMENT
+# ============================================================================
+
+class ValidatorAssignment(Base):
+    """
+    Assigns validators to specific cases within a module.
+    Phase 1: One validator per module.
+    """
+    __tablename__ = "validator_assignments"
+    
+    id = Column(Integer, primary_key=True)
+    module_id = Column(Integer, ForeignKey("verification_modules.id", ondelete="CASCADE"))
+    case_id = Column(Integer, ForeignKey("court_cases.id", ondelete="CASCADE"))
+    validator_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Status
+    status = Column(String, default="pending")  # "pending", "in_progress", "completed"
+    
+    # Timestamps
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    
+    # Relationships
+    module = relationship("VerificationModule", backref="assignments")
+    case = relationship("CourtCase")
+    validator = relationship("User")
+
+
+# ============================================================================
+# AI ANALYSIS
+# ============================================================================
+
+class AIAnalysis(Base):
+    """
+    Stores AI's answer for a specific case + module combination.
+    Multiple rounds possible (ai_round tracks iterations).
+    """
+    __tablename__ = "ai_analyses"
+    
+    id = Column(Integer, primary_key=True)
+    module_id = Column(Integer, ForeignKey("verification_modules.id", ondelete="CASCADE"))
+    case_id = Column(Integer, ForeignKey("court_cases.id", ondelete="CASCADE"))
+    
+    # AI Response
+    ai_answer = Column(Text)  # The actual answer
+    ai_reasoning = Column(Text)  # Why AI gave this answer
+    ai_confidence = Column(Float)  # 0.0 to 1.0 (0% to 100%)
+    
+    # Round tracking
+    ai_round = Column(Integer)  # 1, 2, 3...
+    
+    # Context used (for reproducibility)
+    project_context_version = Column(Integer)
+    module_context_snapshot = Column(Text)
+    
+    # Model info
+    model_used = Column(String)  # "claude-sonnet-4-20250514"
+    tokens_used = Column(Integer)
+    cost = Column(Float)
+    
+    # Timestamps
+    generated_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    module = relationship("VerificationModule", backref="ai_analyses")
+    case = relationship("CourtCase")
+
+
+# ============================================================================
+# VALIDATION (Validator Feedback)
+# ============================================================================
+
+class ValidationFeedback(Base):
+    """
+    Validator's review of AI's answer.
+    """
+    __tablename__ = "validation_feedback"
+    
+    id = Column(Integer, primary_key=True)
+    assignment_id = Column(Integer, ForeignKey("validator_assignments.id", ondelete="CASCADE"))
+    ai_analysis_id = Column(Integer, ForeignKey("ai_analyses.id", ondelete="CASCADE"))
+    
+    # Validator's decision
+    is_correct = Column(Boolean)  # True = AI correct, False = AI wrong
+    
+    # Feedback (if incorrect)
+    validator_correction = Column(Text)  # What the correct answer should be
+    validator_reasoning = Column(Text)  # WHY it's wrong / what AI missed
+    validator_notes = Column(Text)  # Additional comments
+    
+    # Scholar review
+    scholar_reviewed = Column(Boolean, default=False)
+    scholar_approved = Column(Boolean)  # Scholar agrees with validator
+    scholar_notes = Column(Text)
+    
+    # For AI improvement
+    used_for_training = Column(Boolean, default=False)
+    
+    # Timestamps
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+    reviewed_at = Column(DateTime)
+    
+    # Relationships
+    assignment = relationship("ValidatorAssignment", backref="feedback")
+    ai_analysis = relationship("AIAnalysis", backref="validations")
+
+
+# ============================================================================
+# FEEDBACK LIBRARY (For AI Improvement)
+# ============================================================================
+
+class FeedbackLibrary(Base):
+    """
+    Curated feedback that AI should learn from.
+    Only scholar-approved corrections go here.
+    """
+    __tablename__ = "feedback_library"
+    
+    id = Column(Integer, primary_key=True)
+    module_id = Column(Integer, ForeignKey("verification_modules.id", ondelete="CASCADE"))
+    
+    # The learning
+    question_text = Column(Text)
+    wrong_answer = Column(Text)  # What AI said (wrong)
+    correct_answer = Column(Text)  # What it should be
+    correction_reason = Column(Text)  # Why + how to avoid
+    
+    # Example case
+    example_case_id = Column(Integer, ForeignKey("court_cases.id"))
+    
+    # Metadata
+    added_at = Column(DateTime, default=datetime.utcnow)
+    times_referenced = Column(Integer, default=0)
+    
+    # Effectiveness tracking
+    helped_improve = Column(Boolean)
+    
+    # Relationships
+    module = relationship("VerificationModule", backref="feedback_library")
+    example_case = relationship("CourtCase")
