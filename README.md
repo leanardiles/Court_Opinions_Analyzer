@@ -24,13 +24,15 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **RESTful API** with auto-generated documentation  
 ✅ **Parquet File Processing** with automated parsing  
 ✅ **Project Management** with CRUD operations and scholar assignment  
+✅ **Project Lifecycle Workflow** (draft → ready → active → launched)  
 ✅ **Parquet Upload & Removal** (one file per project)  
 ✅ **Dynamic Case Viewer** with column selector  
 ✅ **Cardozo Law Branded UI** (professional design system)  
 ✅ **Clickable Project Cards** navigate to project details  
-🚧 **Case Assignment Workflow** (Coming next)  
+🚧 **Scholar Dashboard** with module management (Coming next)  
+🚧 **Verification Modules** with configurable questions (Coming next)  
 🚧 **AI Integration** (Claude/GPT-4) (Coming soon)  
-🚧 **Data Visualization Dashboard** (Coming soon)
+🚧 **Validator Workflow** (Coming soon)
 
 ---
 
@@ -277,10 +279,23 @@ git push
 - [x] Created scholar1 and ta2 test users
 - [x] Scholar visibility in dashboard and project details
 
+**✅ Completed (Session 4 - Mar 1, 2026)**
+- [x] Project lifecycle workflow (draft/ready/active/launched)
+- [x] Status auto-update logic (draft→ready when parquet+scholar assigned)
+- [x] Send to Scholar endpoint and UI (admin)
+- [x] Launch Project endpoint and UI (scholar)
+- [x] Enhanced dashboard with project ID, status badges, dates
+- [x] Display parquet filename in project detail view
+- [x] Scholar email enrichment in project responses
+- [x] Compact column selector spacing
+- [x] Architecture planning for verification modules system
+
 **🚧 In Progress / Next Steps**
-- [ ] Admin/Scholar: Case assignment workflow
-- [ ] Validator: Case viewing interface
-- [ ] Validator: Verification submission
+- [ ] Scholar Dashboard (separate from admin)
+- [ ] Project context management (text-based)
+- [ ] Verification modules system (questions with configurable answer types)
+- [ ] Random case sampling for verification
 - [ ] AI integration (Claude/GPT-4)
-- [ ] Scholar: Review dashboard
-- [ ] Data visualization and analytics
+- [ ] Validator assignment to modules
+- [ ] Validator verification interface
+- [ ] Feedback loop for AI improvement
