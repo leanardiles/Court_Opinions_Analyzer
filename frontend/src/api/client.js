@@ -35,11 +35,10 @@ export const authAPI = {
     return response.data;
   },
 
-  //Get all scholars
+  // Get all scholars
   getScholars: async () => {
     const response = await apiClient.get('/auth/users/scholars');
     return response.data;
-
   },
 };
 
@@ -71,6 +70,18 @@ export const projectsAPI = {
     );
     return response.data;
   },
+
+  // 🆕 NEW: Send project to scholar
+  sendToScholar: async (projectId) => {
+    const response = await apiClient.patch(`/projects/${projectId}/send-to-scholar`);
+    return response.data;
+  },
+
+  // 🆕 NEW: Launch project (scholar only)
+  launchProject: async (projectId) => {
+    const response = await apiClient.patch(`/projects/${projectId}/launch`);
+    return response.data;
+  },
 };
 
 // Upload API
@@ -91,7 +102,7 @@ export const uploadAPI = {
     return response.data;
   },
   
-  // 🆕 ADD THIS: Remove Parquet file
+  // Remove Parquet file
   removeParquet: async (projectId) => {
     const response = await apiClient.delete(
       `/uploads/projects/${projectId}/parquet`

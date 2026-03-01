@@ -146,46 +146,79 @@ export default function Dashboard() {
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="text-xl font-serif font-bold text-cardozo-dark mb-2">
-                          {project.name}
-                        </h3>
-                        {project.description && (
-                          <p className="text-gray-600 mb-3">{project.description}</p>
-                        )}
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="font-medium">{project.total_cases} cases</span>
-                          <span>·</span>
-                          <span>Created {new Date(project.created_at).toLocaleDateString()}</span>
-                          <span>·</span>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            project.is_active 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {project.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                          {/*Display assigned scholar */}
-                          {project.scholar_id && (
-                            <>
-                              <span>·</span>
-                              <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                Scholar Assigned
-                              </span>
-                            </>
-                          )}
+                        {/* Line 1: Project Name */}
+                        <div className="mb-3">
+                          <span className="text-sm font-semibold text-gray-600">Project Name:</span>
+                          <h3 className="text-xl font-serif font-bold text-cardozo-dark mt-1">
+                            {project.name}
+                          </h3>
                         </div>
+
+                        {/* Line 2: Project ID */}
+                        <div className="mb-3">
+                          <span className="text-sm font-semibold text-gray-600">Project ID:</span>
+                          <span className="text-sm text-gray-900 ml-2 font-mono">#{project.id}</span>
+                        </div>
+
+                        {/* Line 3: Status, Date, Scholar */}
+                        <div className="flex flex-wrap items-center gap-3 text-sm">
+                          {/* Status Badge */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-600">Status:</span>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${
+                              project.status === 'launched' ? 'bg-green-100 text-green-800' :
+                              project.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                              project.status === 'ready' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {project.status}
+                            </span>
+                          </div>
+
+                          <span className="text-gray-400">•</span>
+
+                          {/* Date */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-600">
+                              {project.status === 'launched' ? 'Launched:' : 
+                               project.status === 'active' ? 'Sent:' : 
+                               'Created:'}
+                            </span>
+                            <span className="text-gray-900">
+                              {project.launched_at ? new Date(project.launched_at).toLocaleDateString() :
+                               project.sent_to_scholar_at ? new Date(project.sent_to_scholar_at).toLocaleDateString() :
+                               new Date(project.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <span className="text-gray-400">•</span>
+
+                          {/* Scholar */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-600">Scholar:</span>
+                            {project.scholar_email ? (
+                              <span className="text-cardozo-blue font-medium">
+                                {project.scholar_email}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic">Unassigned</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Description (if exists) */}
+                        {project.description && (
+                          <p className="text-gray-600 mt-3 text-sm">{project.description}</p>
+                        )}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Delete button - positioned absolutely to avoid triggering card click */}
+                  {/* Delete button - positioned absolutely */}
                   {user?.role === 'admin' && (
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
+                        e.stopPropagation();
                         handleDeleteProject(project.id, project.name);
                       }}
                       className="absolute top-4 right-4 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
