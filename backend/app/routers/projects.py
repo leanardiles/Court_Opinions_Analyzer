@@ -303,7 +303,7 @@ def get_project_cases(
         case_dict = {
             "id": case.id,
             "case_name": case.case_name,
-            "case_date": case.case_date.isoformat() if case.case_date else None,
+            "case_date": case.case_date.strftime('%Y-%m-%d') if case.case_date else None,
             "court": case.court,
             "docket_number": case.docket_number,
             "judges_names": case.judges_names,
