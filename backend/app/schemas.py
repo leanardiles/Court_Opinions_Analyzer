@@ -84,6 +84,12 @@ class ProjectResponse(ProjectBase):
     sent_to_scholar_at: Optional[datetime] = None
     launched_at: Optional[datetime] = None
     
+    # AI Configuration (DUMMY FEATURE FOR NOW)
+    ai_model: str = "Sonnet 4.5"
+    total_tokens_used: int = 0
+    total_cost: float = 0.0
+    budget_limit: float = 1000.0
+
     is_active: bool = True
     created_at: datetime
     updated_at: Optional[datetime] = None

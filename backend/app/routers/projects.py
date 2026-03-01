@@ -368,6 +368,40 @@ def assign_scholar(
     }
 
 
+@router.patch("/{project_id}/ai-model")
+def update_ai_model(
+    project_id: int,
+    ai_model: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """
+    Update AI model selection for a project.
+    Admin only.
+    """
+    # Validate model choice
+    valid_models = ["GPT-5.2", "Sonnet 4.5", "Gemini 3.1"]
+    if ai_model not in valid_models:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid AI model. Choose from: {', '.join(valid_models)}"
+        )
+    
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project.ai_model = ai_model
+    db.commit()
+    db.refresh(project)
+    
+    return {
+        "success": True,
+        "message": f"AI model updated to {ai_model}",
+        "ai_model": ai_model
+    }
+
+
 @router.patch("/{project_id}/send-to-scholar")
 def send_to_scholar(
     project_id: int,

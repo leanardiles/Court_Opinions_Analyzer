@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum as SQLEnum, ForeignKey, Text, Boolean, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Enum as SQLEnum, ForeignKey, Text, Boolean, JSON, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -95,6 +95,14 @@ class Project(Base):
     admin = relationship("User", back_populates="created_projects", foreign_keys=[admin_id])
     scholar = relationship("User", back_populates="scholar_projects", foreign_keys=[scholar_id])
     court_cases = relationship("CourtCase", back_populates="project", cascade="all, delete-orphan")
+
+    # AI Configuration (DUMMY FEATURE FOR NOW)
+    ai_model = Column(String, default="Sonnet 4.5")  # Selected AI model
+    
+    # API Usage Tracking (DUMMY FEATURE FOR NOW)
+    total_tokens_used = Column(Integer, default=0)
+    total_cost = Column(Float, default=0.0)
+    budget_limit = Column(Float, default=1000.0)  # Default $1000 budget
     
     def __repr__(self):
         return f"<Project(id={self.id}, name={self.name}, admin_id={self.admin_id})>"
