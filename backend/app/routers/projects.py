@@ -322,13 +322,13 @@ def get_project_cases(
 @router.patch("/{project_id}/assign-scholar")
 def assign_scholar(
     project_id: int,
-    scholar_id: int = None,  # 🆕 Make optional
+    scholar_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """
     Assign or unassign a scholar to a project.
-    Admin only.
+    Admin only. Use scholar_id = -1 to unassign.
     """
     # Verify project exists
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -345,8 +345,8 @@ def assign_scholar(
             detail="Cannot change scholar assignment after project has been sent to scholar"
         )
     
-    # If scholar_id is None, unassign
-    if scholar_id is None:
+    # If scholar_id is -1, unassign
+    if scholar_id == -1:
         project.scholar_id = None
         project.status = "draft"  # Reset to draft
         db.commit()
