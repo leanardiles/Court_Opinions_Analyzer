@@ -145,26 +145,87 @@ export default function Dashboard() {
                     className="p-6 cursor-pointer"
                   >
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        {/* Line 1: Project Name */}
-                        <div className="mb-3">
-                          <span className="text-sm font-semibold text-gray-600">Project Name:</span>
-                          <h3 className="text-xl font-serif font-bold text-cardozo-dark mt-1">
+                      <div className="flex-1 space-y-2">
+                        {/* Project Name */}
+                        <div className="flex items-start gap-3">
+                          <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Project Name:</span>
+                          <h3 className="text-xl font-serif font-bold text-cardozo-dark flex-1">
                             {project.name}
                           </h3>
                         </div>
 
-                        {/* Line 2: Project ID */}
-                        <div className="mb-3">
-                          <span className="text-sm font-semibold text-gray-600">Project ID:</span>
-                          <span className="text-sm text-gray-900 ml-2 font-mono">#{project.id}</span>
+                        {/* Description */}
+                        {project.description && (
+                          <div className="flex items-start gap-3">
+                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Description:</span>
+                            <p className="text-gray-600 flex-1">{project.description}</p>
+                          </div>
+                        )}
+
+                        {/* Project ID */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Project ID:</span>
+                          <span className="text-sm text-gray-900 font-mono">#{project.id}</span>
                         </div>
 
-                        {/* Line 3: Status, Date, Scholar */}
-                        <div className="flex flex-wrap items-center gap-3 text-sm">
-                          {/* Status Badge */}
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-600">Status:</span>
+                        {/* Scholar (Admin view only) */}
+                        {user?.role === 'admin' && (
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Scholar:</span>
+                            {project.scholar_email ? (
+                              <span className="text-sm text-cardozo-blue font-medium">
+                                {project.scholar_email}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">Unassigned</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Admin (Scholar view only) */}
+                        {user?.role === 'scholar' && (
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Admin:</span>
+                            <span className="text-sm text-purple-600 font-medium">
+                              {project.admin_email || 'Unknown'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Validators (Scholar view only) */}
+                        {user?.role === 'scholar' && (
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Validator(s):</span>
+                            <span className="text-sm text-gray-400 italic">Unassigned</span>
+                          </div>
+                        )}
+
+                        {/* Admin & Scholar (Validator view only) */}
+                        {user?.role === 'validator' && (
+                          <>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Admin:</span>
+                              <span className="text-sm text-purple-600 font-medium">
+                                {project.admin_email || 'Unknown'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Scholar:</span>
+                              {project.scholar_email ? (
+                                <span className="text-sm text-cardozo-blue font-medium">
+                                  {project.scholar_email}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-400 italic">Unassigned</span>
+                              )}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Status and Date */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Status:</span>
+                          <div className="flex items-center gap-3 text-sm">
                             <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${
                               project.status === 'launched' ? 'bg-green-100 text-green-800' :
                               project.status === 'active' ? 'bg-blue-100 text-blue-800' :
@@ -173,43 +234,16 @@ export default function Dashboard() {
                             }`}>
                               {project.status}
                             </span>
-                          </div>
-
-                          <span className="text-gray-400">•</span>
-
-                          {/* Date */}
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-600">
-                              {project.status === 'launched' ? 'Launched:' : 
-                               project.status === 'active' ? 'Sent:' : 
-                               'Created:'}
+                            <span className="text-gray-400">•</span>
+                            <span className="text-gray-600">
+                              {project.status === 'launched' ? 'Launched' : 
+                              project.status === 'active' ? 'Sent' : 
+                              'Created'} {new Date(
+                                project.launched_at || project.sent_to_scholar_at || project.created_at
+                              ).toLocaleDateString()}
                             </span>
-                            <span className="text-gray-900">
-                              {project.launched_at ? new Date(project.launched_at).toLocaleDateString() :
-                               project.sent_to_scholar_at ? new Date(project.sent_to_scholar_at).toLocaleDateString() :
-                               new Date(project.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-
-                          <span className="text-gray-400">•</span>
-
-                          {/* Scholar */}
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-600">Scholar:</span>
-                            {project.scholar_email ? (
-                              <span className="text-cardozo-blue font-medium">
-                                {project.scholar_email}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 italic">Unassigned</span>
-                            )}
                           </div>
                         </div>
-
-                        {/* Description (if exists) */}
-                        {project.description && (
-                          <p className="text-gray-600 mt-3 text-sm">{project.description}</p>
-                        )}
                       </div>
                     </div>
                   </div>

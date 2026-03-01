@@ -73,6 +73,7 @@ class ProjectResponse(ProjectBase):
     """Schema for project responses"""
     id: int
     admin_id: int
+    admin_email: Optional[str] = None
     scholar_id: Optional[int] = None
     scholar_email: Optional[str] = None
     parquet_filename: Optional[str] = None

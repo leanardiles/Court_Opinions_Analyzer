@@ -71,15 +71,23 @@ export const projectsAPI = {
     return response.data;
   },
 
-  // 🆕 NEW: Send project to scholar
+  //Send project to scholar
   sendToScholar: async (projectId) => {
     const response = await apiClient.patch(`/projects/${projectId}/send-to-scholar`);
     return response.data;
   },
 
-  // 🆕 NEW: Launch project (scholar only)
+  //Launch project (scholar only)
   launchProject: async (projectId) => {
     const response = await apiClient.patch(`/projects/${projectId}/launch`);
+    return response.data;
+  },
+
+  //Update AI model
+  updateAIModel: async (projectId, aiModel) => {
+    const response = await apiClient.patch(
+      `/projects/${projectId}/ai-model?ai_model=${encodeURIComponent(aiModel)}`
+    );
     return response.data;
   },
 };
