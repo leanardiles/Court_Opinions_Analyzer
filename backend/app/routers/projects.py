@@ -117,6 +117,11 @@ def list_projects(
             "updated_at": project.updated_at,
         }
         
+        # Add admin email
+        admin = db.query(User).filter(User.id == project.admin_id).first()
+        if admin:
+            project_dict["admin_email"] = admin.email
+
         # Add scholar email if scholar is assigned
         if project.scholar_id:
             scholar = db.query(User).filter(User.id == project.scholar_id).first()
@@ -165,7 +170,7 @@ def get_project(
             detail="You don't have access to this project"
         )
     
-    # 🆕 ADD THIS: Enrich with scholar email
+    # Enrich with scholar email
     project_dict = {
         "id": project.id,
         "name": project.name,
@@ -183,6 +188,11 @@ def get_project(
         "updated_at": project.updated_at,
     }
     
+    # Add admin email - 🆕 NEW
+    admin = db.query(User).filter(User.id == project.admin_id).first()
+    if admin:
+        project_dict["admin_email"] = admin.email
+
     # Add scholar email if scholar is assigned
     if project.scholar_id:
         scholar = db.query(User).filter(User.id == project.scholar_id).first()
