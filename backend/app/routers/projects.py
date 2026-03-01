@@ -322,12 +322,12 @@ def get_project_cases(
 @router.patch("/{project_id}/assign-scholar")
 def assign_scholar(
     project_id: int,
-    scholar_id: int,
+    scholar_id: int = None,  # 🆕 Make optional
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
     """
-    Assign a scholar to a project.
+    Assign or unassign a scholar to a project.
     Admin only.
     """
     # Verify project exists
@@ -337,6 +337,26 @@ def assign_scholar(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Project {project_id} not found"
         )
+    
+    # Don't allow changes after project is sent to scholar
+    if project.status in ['active', 'launched']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change scholar assignment after project has been sent to scholar"
+        )
+    
+    # If scholar_id is None, unassign
+    if scholar_id is None:
+        project.scholar_id = None
+        project.status = "draft"  # Reset to draft
+        db.commit()
+        db.refresh(project)
+        
+        return {
+            "success": True,
+            "message": "Scholar unassigned from project",
+            "project": project
+        }
     
     # Verify scholar exists and has scholar role
     scholar = db.query(User).filter(User.id == scholar_id).first()
