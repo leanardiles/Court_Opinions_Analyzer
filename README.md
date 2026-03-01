@@ -20,19 +20,20 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 
 ✅ **Role-Based Access Control** (Admin, Scholar, Validator)  
 ✅ **JWT Authentication** with secure password hashing  
-✅ **Database-Driven Architecture** (5-table relational schema)  
+✅ **Database-Driven Architecture** (13-table relational schema)  
 ✅ **RESTful API** with auto-generated documentation  
 ✅ **Parquet File Processing** with automated parsing  
 ✅ **Project Management** with CRUD operations and scholar assignment  
 ✅ **Project Lifecycle Workflow** (draft → ready → active → launched)  
-✅ **Parquet Upload & Removal** (one file per project)  
+✅ **AI Model Selection** (GPT-5.2, Sonnet 4.5, Gemini 3.1)  
+✅ **API Usage Tracking** (tokens, cost, budget monitoring)  
+✅ **Module Creation** - Scholars can create research questions  
 ✅ **Dynamic Case Viewer** with column selector  
 ✅ **Cardozo Law Branded UI** (professional design system)  
-✅ **Clickable Project Cards** navigate to project details  
-🚧 **Scholar Dashboard** with module management (Coming next)  
-🚧 **Verification Modules** with configurable questions (Coming next)  
-🚧 **AI Integration** (Claude/GPT-4) (Coming soon)  
-🚧 **Validator Workflow** (Coming soon)
+🚧 **Project Context Management** (Coming next - Day 3)  
+🚧 **Validator Assignment per Module** (Coming next - Day 4)  
+🚧 **AI Integration** (Claude API) (Day 9)  
+🚧 **Validator Verification Workflow** (Days 6-7)
 
 ---
 
@@ -119,13 +120,28 @@ Frontend runs on: http://localhost:5173
 
 ## 📊 Database Schema
 
-Current schema includes 5 main tables:
+Current schema includes 13 tables across 3 layers:
 
+**Core Tables (5):**
 - **users** - User accounts with role-based access (admin/scholar/validator)
-- **projects** - Research projects containing court case collections
-- **court_cases** - Individual court opinions with metadata and AI analysis
-- **assignments** - Links validators to cases for verification
-- **verifications** - Stores validator answers and AI accuracy metrics
+- **projects** - Research projects with AI model selection and budget tracking
+- **court_cases** - Individual court opinions from uploaded Parquet files
+- **assignments** - (Legacy - being replaced by validator_assignments)
+- **verifications** - (Legacy - being replaced by validation_feedback)
+
+**Verification Module Tables (8):**
+- **project_contexts** - Project-wide context for AI prompts (applies to all modules)
+- **verification_modules** - Research questions with answer types and sample sizes
+- **module_case_samples** - Random case samples per module
+- **validator_assignments** - Links validators to specific module cases
+- **ai_analyses** - AI responses with reasoning and confidence scores
+- **validation_feedback** - Validator corrections and reasoning
+- **feedback_library** - Scholar-approved corrections for AI improvement
+
+Architecture supports:
+- Two-level context system (project + module)
+- Per-module validator assignment
+- Multi-round AI improvement with feedback loops
 
 See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 
@@ -180,9 +196,13 @@ Court_Opinions_Analyzer/
 │   ├── app/
 │   │   ├── core/           # Configuration
 │   │   ├── routers/        # API endpoints
+│   │   │   ├── auth.py
+│   │   │   ├── projects.py
+│   │   │   ├── uploads.py
+│   │   │   └── modules.py  # 🆕 Module management
 │   │   ├── utils/          # Helper functions
 │   │   ├── database.py     # Database connection
-│   │   ├── models.py       # SQLAlchemy models
+│   │   ├── models.py       # SQLAlchemy models (13 tables)
 │   │   ├── schemas.py      # Pydantic schemas
 │   │   └── main.py         # FastAPI app
 │   ├── docs/               # Documentation
@@ -192,6 +212,16 @@ Court_Opinions_Analyzer/
 │   └── requirements.txt    # Python dependencies
 ├── frontend/
 │   ├── src/
+│   │   ├── api/
+│   │   │   └── client.js   # API client with auth
+│   │   ├── components/
+│   │   │   └── Header.jsx
+│   │   ├── pages/
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── ProjectDetailPage.jsx  # 🆕 Module creation UI
+│   │   │   ├── UploadPage.jsx
+│   │   │   └── ViewCasesPage.jsx
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
@@ -199,7 +229,8 @@ Court_Opinions_Analyzer/
 │   ├── package.json
 │   └── vite.config.js
 ├── .gitignore
-├── PROJECT_PROGRESS.txt    # Development tracker
+├── IMPLEMENTATION_SCHEDULE.txt  # 🆕 10-day sprint plan
+├── PROJECT_PROGRESS.txt         # Development tracker
 └── README.md
 ```
 
@@ -279,7 +310,7 @@ git push
 - [x] Created scholar1 and ta2 test users
 - [x] Scholar visibility in dashboard and project details
 
-**✅ Completed (Session 4 - Mar 1, 2026)**
+**✅ Completed (Session 4 - Mar 1, 2026 - Part 1)**
 - [x] Project lifecycle workflow (draft/ready/active/launched)
 - [x] Status auto-update logic (draft→ready when parquet+scholar assigned)
 - [x] Send to Scholar endpoint and UI (admin)
@@ -288,14 +319,29 @@ git push
 - [x] Display parquet filename in project detail view
 - [x] Scholar email enrichment in project responses
 - [x] Compact column selector spacing
-- [x] Architecture planning for verification modules system
+- [x] AI model selection dropdown (GPT-5.2, Sonnet 4.5, Gemini 3.1)
+- [x] API usage tracking module (tokens, cost, budget)
+- [x] Role-based dashboard views (admin/scholar/validator)
+- [x] Delete project from detail page
+- [x] Assign/Unassign scholar functionality
 
-**🚧 In Progress / Next Steps**
-- [ ] Scholar Dashboard (separate from admin)
-- [ ] Project context management (text-based)
-- [ ] Verification modules system (questions with configurable answer types)
-- [ ] Random case sampling for verification
-- [ ] AI integration (Claude/GPT-4)
-- [ ] Validator assignment to modules
-- [ ] Validator verification interface
-- [ ] Feedback loop for AI improvement
+**✅ Completed (Day 1-2 - Mar 1, 2026 - Part 2)**
+- [x] Database schema for verification modules (8 new tables)
+- [x] Module creation API (5 endpoints: create, list, get, update, delete)
+- [x] Pydantic schemas for modules and contexts
+- [x] Scholar UI: Module creation form
+- [x] Module display with status badges
+- [x] Support for 5 answer types (yes/no, multiple choice, integer, text, date)
+- [x] Module-specific context (markdown)
+- [x] Configurable sample sizes per module
+
+**🚧 Next Steps (Day 3-10 - Verification Workflow)**
+- [ ] **Day 3:** Project context management (overarching context for all modules)
+- [ ] **Day 4:** Case sampling & validator assignment (per module)
+- [ ] **Day 5:** Mock AI analysis generation
+- [ ] **Day 6-7:** Validator dashboard and verification UI
+- [ ] **Day 8:** Scholar review interface for validator corrections
+- [ ] **Day 9:** Real AI integration (Claude API)
+- [ ] **Day 10:** Round 2 & feedback loop for AI improvement
+
+See `IMPLEMENTATION_SCHEDULE.txt` for detailed 10-day sprint plan.
