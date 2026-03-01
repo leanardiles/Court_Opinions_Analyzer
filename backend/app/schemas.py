@@ -68,15 +68,25 @@ class ProjectUpdate(BaseModel):
     scholar_id: Optional[int] = None
     is_active: Optional[bool] = None
 
+
 class ProjectResponse(ProjectBase):
     """Schema for project responses"""
     id: int
     admin_id: int
-    scholar_id: Optional[int]
-    total_cases: int
-    is_active: bool
+    scholar_id: Optional[int] = None
+    scholar_email: Optional[str] = None
+    parquet_filename: Optional[str] = None
+    parquet_filepath: Optional[str] = None
+    total_cases: int = 0
+    
+    # Project lifecycle
+    status: str = "draft"  # "draft", "ready", "active", "launched"
+    sent_to_scholar_at: Optional[datetime] = None
+    launched_at: Optional[datetime] = None
+    
+    is_active: bool = True
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at: Optional[datetime] = None
     
     # Pydantic V2 configuration
     model_config = ConfigDict(from_attributes=True)

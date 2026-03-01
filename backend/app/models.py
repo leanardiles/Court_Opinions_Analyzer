@@ -81,9 +81,6 @@ class Project(Base):
     parquet_filepath = Column(String, nullable=True)  # Where it's stored
     total_cases = Column(Integer, default=0)  # Number of cases in the project
     
-    # Project status
-    is_active = Column(Boolean, default=True)
-    
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -92,6 +89,13 @@ class Project(Base):
     admin = relationship("User", back_populates="created_projects", foreign_keys=[admin_id])
     scholar = relationship("User", back_populates="scholar_projects", foreign_keys=[scholar_id])
     court_cases = relationship("CourtCase", back_populates="project", cascade="all, delete-orphan")
+
+    # Project lifecycle
+    status = Column(String, default="draft")  # "draft", "ready", "active", "launched"
+    sent_to_scholar_at = Column(DateTime)  # When admin sent to scholar
+    launched_at = Column(DateTime)  # When scholar launched
+    
+    is_active = Column(Boolean, default=True)  # Keep for archiving/deleting
     
     def __repr__(self):
         return f"<Project(id={self.id}, name={self.name}, admin_id={self.admin_id})>"

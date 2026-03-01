@@ -5,6 +5,7 @@ Project management routes - admin creates and manages projects.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 
 from app.database import get_db
 from app.models import User, Project, CourtCase
@@ -13,6 +14,25 @@ from app.dependencies import require_admin, get_current_user
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def update_project_status(project: Project, db: Session):
+    """
+    Automatically update project status based on completeness.
+    DRAFT → READY when both parquet and scholar are assigned
+    """
+    if project.status == "draft":
+        # Check if project is ready to send
+        if project.total_cases > 0 and project.scholar_id:
+            project.status = "ready"
+            db.commit()
+
+
+# ============================================================================
+# ENDPOINTS
+# ============================================================================
 
 @router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
@@ -77,7 +97,35 @@ def list_projects(
         # (We'll implement this later when assignments are built)
         projects = []
     
-    return projects
+    # Enrich projects with scholar email
+    result = []
+    for project in projects:
+        project_dict = {
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "admin_id": project.admin_id,
+            "scholar_id": project.scholar_id,
+            "parquet_filename": project.parquet_filename,
+            "parquet_filepath": project.parquet_filepath,
+            "total_cases": project.total_cases,
+            "status": project.status,
+            "sent_to_scholar_at": project.sent_to_scholar_at,
+            "launched_at": project.launched_at,
+            "is_active": project.is_active,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at,
+        }
+        
+        # Add scholar email if scholar is assigned
+        if project.scholar_id:
+            scholar = db.query(User).filter(User.id == project.scholar_id).first()
+            if scholar:
+                project_dict["scholar_email"] = scholar.email
+        
+        result.append(project_dict)
+    
+    return result
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -117,7 +165,31 @@ def get_project(
             detail="You don't have access to this project"
         )
     
-    return project
+    # 🆕 ADD THIS: Enrich with scholar email
+    project_dict = {
+        "id": project.id,
+        "name": project.name,
+        "description": project.description,
+        "admin_id": project.admin_id,
+        "scholar_id": project.scholar_id,
+        "parquet_filename": project.parquet_filename,
+        "parquet_filepath": project.parquet_filepath,
+        "total_cases": project.total_cases,
+        "status": project.status,
+        "sent_to_scholar_at": project.sent_to_scholar_at,
+        "launched_at": project.launched_at,
+        "is_active": project.is_active,
+        "created_at": project.created_at,
+        "updated_at": project.updated_at,
+    }
+    
+    # Add scholar email if scholar is assigned
+    if project.scholar_id:
+        scholar = db.query(User).filter(User.id == project.scholar_id).first()
+        if scholar:
+            project_dict["scholar_email"] = scholar.email
+    
+    return project_dict
 
 
 @router.patch("/{project_id}", response_model=ProjectResponse)
@@ -198,6 +270,7 @@ def delete_project(
             detail=f"Failed to delete project: {str(e)}"
         )
 
+
 @router.get("/{project_id}/cases")
 def get_project_cases(
     project_id: int,
@@ -273,7 +346,7 @@ def assign_scholar(
             detail=f"Scholar {scholar_id} not found"
         )
     
-    if scholar.role != "scholar":
+    if scholar.role.value != "scholar":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"User {scholar.email} is not a scholar"
@@ -282,10 +355,98 @@ def assign_scholar(
     # Assign scholar
     project.scholar_id = scholar_id
     db.commit()
+   
+    # Auto-update status
+    update_project_status(project, db)
+    
     db.refresh(project)
     
     return {
         "success": True,
         "message": f"Scholar {scholar.email} assigned to project {project.name}",
         "project": project
+    }
+
+
+@router.patch("/{project_id}/send-to-scholar")
+def send_to_scholar(
+    project_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    """
+    Admin sends project to scholar.
+    Changes status from READY → ACTIVE
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Validate project is ready
+    if project.status != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Project must be in READY status. Current status: {project.status}"
+        )
+    
+    if not project.scholar_id:
+        raise HTTPException(status_code=400, detail="Scholar must be assigned first")
+    
+    if project.total_cases == 0:
+        raise HTTPException(status_code=400, detail="Parquet file must be uploaded first")
+    
+    # Send to scholar
+    project.status = "active"
+    project.sent_to_scholar_at = datetime.utcnow()
+    db.commit()
+    
+    scholar = db.query(User).filter(User.id == project.scholar_id).first()
+    
+    return {
+        "success": True,
+        "message": f"Project sent to scholar {scholar.email}",
+        "status": "active",
+        "sent_at": project.sent_to_scholar_at
+    }
+
+
+@router.patch("/{project_id}/launch")
+def launch_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Scholar launches project.
+    Changes status from ACTIVE → LAUNCHED
+    Only the assigned scholar can launch.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Verify user is the assigned scholar
+    if current_user.role.value != "scholar" or project.scholar_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the assigned scholar can launch this project"
+        )
+    
+    # Validate status
+    if project.status != "active":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Project must be ACTIVE to launch. Current status: {project.status}"
+        )
+    
+    # Launch project
+    project.status = "launched"
+    project.launched_at = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Project launched successfully",
+        "status": "launched",
+        "launched_at": project.launched_at
     }
