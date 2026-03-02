@@ -83,12 +83,6 @@ export const projectsAPI = {
     return response.data;
   },
 
-  //Launch project (scholar only)
-  launchProject: async (projectId) => {
-    const response = await apiClient.patch(`/projects/${projectId}/launch`);
-    return response.data;
-  },
-
   //Update AI model
   updateAIModel: async (projectId, aiModel) => {
     const response = await apiClient.patch(

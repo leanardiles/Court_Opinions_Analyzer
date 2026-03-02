@@ -192,11 +192,13 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {/* Validators (Scholar view only) */}
+                        {/* Module Count (Scholar view only) */}
                         {user?.role === 'scholar' && (
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Validator(s):</span>
-                            <span className="text-sm text-gray-400 italic">Unassigned</span>
+                            <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Modules:</span>
+                            <span className="text-sm text-cardozo-blue font-medium">
+                              {project.module_count || 0}
+                            </span>
                           </div>
                         )}
 
@@ -222,27 +224,16 @@ export default function Dashboard() {
                           </>
                         )}
 
-                        {/* Status and Date */}
+                        {/* Status */}
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-semibold text-gray-600 min-w-[120px]">Status:</span>
-                          <div className="flex items-center gap-3 text-sm">
-                            <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${
-                              project.status === 'launched' ? 'bg-green-100 text-green-800' :
-                              project.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                              project.status === 'ready' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {project.status}
-                            </span>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-gray-600">
-                              {project.status === 'launched' ? 'Launched' : 
-                              project.status === 'active' ? 'Sent' : 
-                              'Created'} {new Date(
-                                project.launched_at || project.sent_to_scholar_at || project.created_at
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${
+                            project.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                            project.status === 'ready' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {project.status}
+                          </span>
                         </div>
                       </div>
                     </div>

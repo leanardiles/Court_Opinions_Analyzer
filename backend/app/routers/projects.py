@@ -128,6 +128,12 @@ def list_projects(
             if scholar:
                 project_dict["scholar_email"] = scholar.email
         
+        # Add module count
+        module_count = db.query(VerificationModule).filter(
+            VerificationModule.project_id == project.id
+        ).count()
+        project_dict["module_count"] = module_count
+        
         result.append(project_dict)
     
     return result

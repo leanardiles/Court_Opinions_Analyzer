@@ -209,23 +209,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleLaunchProject = async () => {
-    if (!window.confirm(
-      `Launch this project?\n\n` +
-      `This will activate the verification workflow.`
-    )) {
-      return;
-    }
-
-    try {
-      await projectsAPI.launchProject(projectId);
-      alert('Project launched successfully!');
-      loadData();
-    } catch (err) {
-      alert('Failed to launch project: ' + (err.response?.data?.detail || 'Unknown error'));
-    }
-  };
-
   const handleAIModelChange = async (newModel) => {
     try {
       await projectsAPI.updateAIModel(projectId, newModel);
@@ -638,16 +621,7 @@ export default function ProjectDetailPage() {
         {/* Action Buttons - Scholar */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
           <div className="mb-6">
-            {/* Launch Project Button */}
-            {project?.status === 'active' && (
-              <button
-                onClick={handleLaunchProject}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition shadow-md mb-4"
-              >
-                🚀 Launch Project
-              </button>
-            )}
-
+   
             {/* Show Parquet filename and AI info if uploaded */}
             {project?.parquet_filename && (
               <div className="space-y-3">
