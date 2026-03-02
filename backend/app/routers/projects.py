@@ -8,7 +8,7 @@ from typing import List
 from datetime import datetime
 
 from app.database import get_db
-from app.models import User, Project, CourtCase
+from app.models import User, Project, CourtCase, VerificationModule, ProjectContext
 from app.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.dependencies import require_admin, get_current_user
 
@@ -513,4 +513,104 @@ def launch_project(
         "message": "Project launched successfully",
         "status": "launched",
         "launched_at": project.launched_at
+    }
+
+@router.post("/{project_id}/context", response_model=dict)
+def create_or_update_project_context(
+    project_id: int,
+    context_text: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create or update project context.
+    Only the assigned scholar can manage project context.
+    """
+    # Verify project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Verify user is the assigned scholar or admin
+    if current_user.role.value == "scholar":
+        if project.scholar_id != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the assigned scholar can manage project context"
+            )
+    elif current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only scholars or admins can manage project context"
+        )
+    
+    # Check if context already exists
+    existing_context = db.query(ProjectContext).filter(
+        ProjectContext.project_id == project_id
+    ).first()
+    
+    if existing_context:
+        # Update existing context
+        existing_context.context_text = context_text
+        existing_context.updated_at = datetime.utcnow()
+        existing_context.version += 1
+        db.commit()
+        db.refresh(existing_context)
+        
+        return {
+            "success": True,
+            "message": "Project context updated",
+            "version": existing_context.version
+        }
+    else:
+        # Create new context
+        new_context = ProjectContext(
+            project_id=project_id,
+            context_text=context_text,
+            created_by=current_user.id,
+            version=1
+        )
+        db.add(new_context)
+        db.commit()
+        db.refresh(new_context)
+        
+        return {
+            "success": True,
+            "message": "Project context created",
+            "version": new_context.version
+        }
+
+@router.get("/{project_id}/context")
+def get_project_context(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get project context.
+    Available to anyone with access to the project.
+    """
+    # Verify project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get context
+    context = db.query(ProjectContext).filter(
+        ProjectContext.project_id == project_id
+    ).first()
+    
+    if not context:
+        return {
+            "exists": False,
+            "context_text": "",
+            "version": 0
+        }
+    
+    return {
+        "exists": True,
+        "context_text": context.context_text,
+        "version": context.version,
+        "created_at": context.created_at,
+        "updated_at": context.updated_at
     }

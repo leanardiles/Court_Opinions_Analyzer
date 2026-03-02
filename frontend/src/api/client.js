@@ -90,6 +90,19 @@ export const projectsAPI = {
     );
     return response.data;
   },
+
+  // Project Context
+  getContext: async (projectId) => {
+    const response = await apiClient.get(`/projects/${projectId}/context`);
+    return response.data;
+  },
+  
+  saveContext: async (projectId, contextText) => {
+    const response = await apiClient.post(
+      `/projects/${projectId}/context?context_text=${encodeURIComponent(contextText)}`
+    );
+    return response.data;
+  },
 };
 
 // Upload API

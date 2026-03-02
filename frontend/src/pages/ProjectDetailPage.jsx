@@ -38,12 +38,27 @@ export default function ProjectDetailPage() {
     loadData();
   }, [projectId]);
 
+  const [projectContext, setProjectContext] = useState('');
+  const [showContextEditor, setShowContextEditor] = useState(false);
+  const [contextText, setContextText] = useState('');
+  const [savingContext, setSavingContext] = useState(false);
+
   const loadModules = async () => {
     try {
       const modulesData = await modulesAPI.list(projectId);
       setModules(modulesData);
     } catch (err) {
       console.error('Failed to load modules:', err);
+    }
+  };
+
+  const loadProjectContext = async () => {
+    try {
+      const contextData = await projectsAPI.getContext(projectId);
+      setProjectContext(contextData.context_text || '');
+      setContextText(contextData.context_text || '');
+    } catch (err) {
+      console.error('Failed to load project context:', err);
     }
   };
 
@@ -59,9 +74,10 @@ export default function ProjectDetailPage() {
       setProject(projectData);
       setCases(casesData);
 
-      // Load modules if scholar
+      // Load modules and context if scholar
       if (userData.role === 'scholar') {
         await loadModules();
+        await loadProjectContext();  // 🆕 ADD THIS LINE
       }
 
       if (casesData.length > 0) {
@@ -261,6 +277,20 @@ export default function ProjectDetailPage() {
       loadModules();
     } catch (err) {
       alert('Failed to create module: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleSaveContext = async () => {
+    setSavingContext(true);
+    try {
+      const result = await projectsAPI.saveContext(projectId, contextText);
+      setProjectContext(contextText);
+      setShowContextEditor(false);
+      alert(result.message || 'Project context saved successfully!');
+    } catch (err) {
+      alert('Failed to save context: ' + (err.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setSavingContext(false);
     }
   };
 
@@ -698,6 +728,50 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
+        {/* Project Context Section - Scholar only */}
+        {user?.role === 'scholar' && project?.scholar_id === user?.id && (
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
+                Project Context
+              </h2>
+              <button
+                onClick={() => setShowContextEditor(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition shadow text-sm"
+              >
+                {projectContext ? '✏️ Edit Context' : '+ Add Context'}
+              </button>
+            </div>
+
+            {projectContext ? (
+              <div className="card">
+                <div className="prose max-w-none">
+                  <div className="text-sm text-gray-600 mb-2 font-semibold">
+                    📄 Overarching context for all modules:
+                  </div>
+                  <div className="whitespace-pre-wrap text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    {projectContext}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="card text-center py-12">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-gray-600 mb-2">No project context added yet</p>
+                <p className="text-sm text-gray-500">
+                  Add overarching context to guide AI analysis across all modules
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+
+
         {cases.length > 0 && (
           <div className="card mb-6">
             <div className="flex justify-between items-center mb-4">
@@ -1024,6 +1098,75 @@ export default function ProjectDetailPage() {
                     module_context: '',
                     sample_size: 20
                   });
+                }}
+                className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Context Editor Modal */}
+      {showContextEditor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-4xl my-8">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-6">
+              Project Context
+            </h2>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-4">
+                Provide overarching context for this project. This will be used by AI for 
+                <span className="font-semibold"> ALL modules</span> in addition to module-specific context.
+              </p>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-semibold mb-1">Tips for effective context:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Explain the overall research goal and background</li>
+                      <li>Define key terms or legal concepts</li>
+                      <li>Mention important cases or principles to look for</li>
+                      <li>Provide guidance that applies across all research questions</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Context (Markdown supported)
+              </label>
+              <textarea
+                value={contextText}
+                onChange={(e) => setContextText(e.target.value)}
+                placeholder=""
+                rows={16}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                This context will be visible to validators and combined with module-specific context when building AI prompts.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSaveContext}
+                disabled={savingContext}
+                className="flex-1 px-6 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+              >
+                {savingContext ? 'Saving...' : 'Save Context'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowContextEditor(false);
+                  setContextText(projectContext); // Reset to saved version
                 }}
                 className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
               >
