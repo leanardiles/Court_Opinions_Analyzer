@@ -92,9 +92,9 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h2 className="text-3xl font-serif font-bold text-cardozo-dark">
-            {user?.role === 'admin' && 'Project Management'}
-            {user?.role === 'scholar' && 'Your Assigned Projects'}
-            {user?.role === 'validator' && 'Your Assignments'}
+            {user?.role === 'admin' && 'Admin Dashboard'}
+            {user?.role === 'scholar' && 'Scholar Dashboard'}
+            {user?.role === 'validator' && 'Validator Dashboard'}
           </h2>
           <div className="w-24 h-1 bg-cardozo-gold mt-2"></div>
         </div>
