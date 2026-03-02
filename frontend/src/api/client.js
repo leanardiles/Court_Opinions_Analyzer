@@ -40,6 +40,12 @@ export const authAPI = {
     const response = await apiClient.get('/auth/users/scholars');
     return response.data;
   },
+
+  // Get validators
+  getValidators: async () => {
+    const response = await apiClient.get('/auth/users/validators');
+    return response.data;
+  },
 };
 
 // Projects API
@@ -165,5 +171,23 @@ export const modulesAPI = {
   delete: async (moduleId) => {
     await apiClient.delete(`/modules/modules/${moduleId}`);
     return { success: true };
+  },
+
+  // Module sampling and validator assignment
+  sampleCases: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/sample-cases`);
+    return response.data;
+  },
+  
+  assignValidator: async (moduleId, validatorId) => {
+    const response = await apiClient.post(
+      `/modules/modules/${moduleId}/assign-validator?validator_id=${validatorId}`
+    );
+    return response.data;
+  },
+  
+  getAssignments: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}/assignments`);
+    return response.data;
   },
 };

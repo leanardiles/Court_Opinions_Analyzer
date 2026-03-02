@@ -43,13 +43,33 @@ export default function ProjectDetailPage() {
   const [contextText, setContextText] = useState('');
   const [savingContext, setSavingContext] = useState(false);
 
+  const [validators, setValidators] = useState([]);
+  const [showValidatorModal, setShowValidatorModal] = useState(false);
+  const [selectedModuleForValidator, setSelectedModuleForValidator] = useState(null);
+  const [moduleAssignments, setModuleAssignments] = useState({});
+
+
   const loadModules = async () => {
     try {
       const modulesData = await modulesAPI.list(projectId);
       setModules(modulesData);
+      await loadModuleAssignments(modulesData); // 🆕 ADD THIS LINE
     } catch (err) {
       console.error('Failed to load modules:', err);
     }
+  };
+
+  const loadModuleAssignments = async (moduleList) => {
+    const assignmentsData = {};
+    for (const module of moduleList) {
+      try {
+        const assignment = await modulesAPI.getAssignments(module.id);
+        assignmentsData[module.id] = assignment;
+      } catch (err) {
+        console.error(`Failed to load assignments for module ${module.id}:`, err);
+      }
+    }
+    setModuleAssignments(assignmentsData);
   };
 
   const loadProjectContext = async () => {
@@ -277,6 +297,45 @@ export default function ProjectDetailPage() {
       loadModules();
     } catch (err) {
       alert('Failed to create module: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleSampleCases = async (moduleId) => {
+    if (!window.confirm('Generate random case sample for this module?')) {
+      return;
+    }
+    
+    try {
+      const result = await modulesAPI.sampleCases(moduleId);
+      alert(result.message || 'Cases sampled successfully!');
+      loadModules(); // Reload to show updated status
+    } catch (err) {
+      alert('Failed to sample cases: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleOpenValidatorModal = async (module) => {
+    try {
+      const validatorList = await authAPI.getValidators();
+      setValidators(validatorList);
+      setSelectedModuleForValidator(module);
+      setShowValidatorModal(true);
+    } catch (err) {
+      alert('Failed to load validators: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleAssignValidator = async (validatorId) => {
+    if (!selectedModuleForValidator) return;
+    
+    try {
+      const result = await modulesAPI.assignValidator(selectedModuleForValidator.id, validatorId);
+      alert(result.message || 'Validator assigned successfully!');
+      setShowValidatorModal(false);
+      setSelectedModuleForValidator(null);
+      loadModules(); // Reload to show assigned validator
+    } catch (err) {
+      alert('Failed to assign validator: ' + (err.response?.data?.detail || 'Unknown error'));
     }
   };
 
@@ -664,69 +723,6 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Modules Section - Scholar only */}
-        {user?.role === 'scholar' && project?.scholar_id === user?.id && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
-                Research Questions (Modules)
-              </h2>
-              <button
-                onClick={() => setShowModuleModal(true)}
-                className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
-              >
-                + Add Module
-              </button>
-            </div>
-
-            {modules.length === 0 ? (
-              <div className="card text-center py-12">
-                <p className="text-gray-600 mb-4">No modules created yet</p>
-                <p className="text-sm text-gray-500">Create your first research question to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {modules.map((module) => (
-                  <div key={module.id} className="card hover:shadow-lg transition">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="px-2 py-1 bg-cardozo-blue text-white rounded text-xs font-semibold">
-                            Module {module.module_number}
-                          </span>
-                          <h3 className="text-lg font-semibold text-cardozo-dark">
-                            {module.module_name}
-                          </h3>
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            module.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                            module.status === 'ready_for_validation' ? 'bg-green-100 text-green-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {module.status.replace(/_/g, ' ').toUpperCase()}
-                          </span>
-                        </div>
-                        
-                        <p className="text-gray-700 mb-3">{module.question_text}</p>
-                        
-                        <div className="flex gap-4 text-sm text-gray-600">
-                          <span>Type: <span className="font-medium">{module.answer_type.replace(/_/g, ' ')}</span></span>
-                          <span>•</span>
-                          <span>Sample Size: <span className="font-medium">{module.sample_size} cases</span></span>
-                          {module.answer_options && (
-                            <>
-                              <span>•</span>
-                              <span>Options: <span className="font-medium">{module.answer_options.length}</span></span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Project Context Section - Scholar only */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
@@ -771,7 +767,122 @@ export default function ProjectDetailPage() {
         )}
 
 
+        {/* Modules Section - Scholar only */}
+        {user?.role === 'scholar' && project?.scholar_id === user?.id && (
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
+                Research Questions (Modules)
+              </h2>
+              <button
+                onClick={() => setShowModuleModal(true)}
+                className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
+              >
+                + Add Module
+              </button>
+            </div>
 
+            {modules.length === 0 ? (
+              <div className="card text-center py-12">
+                <p className="text-gray-600 mb-4">No modules created yet</p>
+                <p className="text-sm text-gray-500">Create your first research question to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {modules.map((module) => {
+                  const assignment = moduleAssignments[module.id] || {};
+                  
+                  return (
+                    <div key={module.id} className="card hover:shadow-lg transition">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="px-2 py-1 bg-cardozo-blue text-white rounded text-xs font-semibold">
+                              Module {module.module_number}
+                            </span>
+                            <h3 className="text-lg font-semibold text-cardozo-dark">
+                              {module.module_name}
+                            </h3>
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              module.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                              module.status === 'sampling_complete' ? 'bg-yellow-100 text-yellow-800' :
+                              module.status === 'ready_for_validation' ? 'bg-green-100 text-green-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {module.status.replace(/_/g, ' ').toUpperCase()}
+                            </span>
+                          </div>
+                          
+                          <p className="text-gray-700 mb-3">{module.question_text}</p>
+                          
+                          <div className="flex gap-4 text-sm text-gray-600 mb-3">
+                            <span>Type: <span className="font-medium">{module.answer_type.replace(/_/g, ' ')}</span></span>
+                            <span>•</span>
+                            <span>Sample Size: <span className="font-medium">{module.sample_size} cases</span></span>
+                            {module.answer_options && (
+                              <>
+                                <span>•</span>
+                                <span>Options: <span className="font-medium">{module.answer_options.length}</span></span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* 🆕 Assignment Info */}
+                          <div className="flex gap-4 text-sm mb-3">
+                            {assignment.sampled ? (
+                              <span className="flex items-center gap-1 text-green-700">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span className="font-medium">{assignment.sample_count} cases sampled</span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 italic">Not sampled yet</span>
+                            )}
+                            <span>•</span>
+                            {assignment.validator ? (
+                              <span className="flex items-center gap-1 text-purple-700">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="font-medium">Validator: {assignment.validator.email}</span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 italic">No validator assigned</span>
+                            )}
+                          </div>
+
+                          {/* 🆕 Action Buttons */}
+                          <div className="flex gap-2 mt-4">
+                            {!assignment.sampled && (
+                              <button
+                                onClick={() => handleSampleCases(module.id)}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
+                              >
+                                🎲 Sample Cases
+                              </button>
+                            )}
+                            
+                            {assignment.sampled && !assignment.validator && (
+                              <button
+                                onClick={() => handleOpenValidatorModal(module)}
+                                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
+                              >
+                                👤 Assign Validator
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+    
         {cases.length > 0 && (
           <div className="card mb-6">
             <div className="flex justify-between items-center mb-4">
@@ -1173,6 +1284,50 @@ export default function ProjectDetailPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Validator Assignment Modal */}
+      {showValidatorModal && selectedModuleForValidator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-6">
+              Assign Validator
+            </h2>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Select a validator to verify {moduleAssignments[selectedModuleForValidator.id]?.sample_count || 0} cases 
+              for <span className="font-semibold">{selectedModuleForValidator.module_name}</span>
+            </p>
+            
+            <div className="space-y-3 max-h-64 overflow-y-auto mb-6">
+              {validators.length === 0 ? (
+                <p className="text-gray-600 text-center py-4">No validators available</p>
+              ) : (
+                validators.map((validator) => (
+                  <button
+                    key={validator.id}
+                    onClick={() => handleAssignValidator(validator.id)}
+                    className="w-full p-4 text-left rounded-lg border-2 border-gray-200 hover:border-purple-600 hover:bg-purple-50 transition"
+                  >
+                    <div className="font-semibold text-gray-900">{validator.email}</div>
+                    {validator.full_name && (
+                      <div className="text-sm text-gray-600">{validator.full_name}</div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setShowValidatorModal(false);
+                setSelectedModuleForValidator(null);
+              }}
+              className="w-full px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

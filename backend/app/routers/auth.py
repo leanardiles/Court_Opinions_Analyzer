@@ -169,3 +169,30 @@ def get_all_scholars(
     """
     scholars = db.query(User).filter(User.role == "scholar").all()
     return scholars
+
+
+
+# ============================================================================
+# GET VALIDATORS LIST (for scholar assigning)
+# ============================================================================
+
+
+@router.get("/users/validators")
+def get_validators(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get list of all validators.
+    Used when assigning validators to modules.
+    """
+    validators = db.query(User).filter(User.role == "validator").all()
+
+    return [
+        {
+            "id": v.id,
+            "email": v.email,
+            "full_name": v.full_name
+        }
+        for v in validators
+    ]
