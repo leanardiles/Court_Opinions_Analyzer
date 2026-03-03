@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 from datetime import datetime
+from typing import Optional
 import random
 
 from app.database import get_db
-from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase, AIAnalysis
+from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase, AIAnalysis, ValidationFeedback
 from app.schemas import (
     VerificationModuleCreate, 
     VerificationModuleResponse, 
@@ -486,3 +487,240 @@ def launch_mock_ai_analysis(
         "analyzed_count": len(samples),
         "model": "mock-ai-v1"
     }
+
+
+@router.get("/validators/my-assignments")
+def get_my_assignments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all modules assigned to the current validator.
+    Shows across all projects.
+    """
+    if current_user.role.value != "validator":
+        raise HTTPException(status_code=403, detail="Only validators can access this endpoint")
+    
+    # Get all assignments for this validator
+    assignments = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.validator_id == current_user.id
+    ).all()
+    
+    # Group by module to get unique modules
+    module_ids = list(set([a.module_id for a in assignments]))
+    
+    result = []
+    for module_id in module_ids:
+        module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+        if not module:
+            continue
+        
+        project = db.query(Project).filter(Project.id == module.project_id).first()
+        
+        # Count total cases and completed validations
+        total_cases = db.query(ValidatorAssignment).filter(
+            ValidatorAssignment.module_id == module_id,
+            ValidatorAssignment.validator_id == current_user.id
+        ).count()
+        
+        # Get completed validations by counting feedback through assignments
+        completed_cases = db.query(ValidationFeedback).join(
+            ValidatorAssignment,
+            ValidationFeedback.assignment_id == ValidatorAssignment.id
+        ).filter(
+            ValidatorAssignment.module_id == module_id,
+            ValidatorAssignment.validator_id == current_user.id
+        ).count()
+        
+        result.append({
+            "module_id": module.id,
+            "module_name": module.module_name,
+            "module_number": module.module_number,
+            "question_text": module.question_text,
+            "answer_type": module.answer_type,
+            "project_id": project.id,
+            "project_name": project.name,
+            "project_description": project.description,
+            "total_cases": total_cases,
+            "completed_cases": completed_cases,
+            "progress_percentage": int((completed_cases / total_cases * 100)) if total_cases > 0 else 0
+        })
+    
+    return result
+
+@router.get("/modules/{module_id}/validation-cases")
+def get_validation_cases(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all cases assigned to validator for this module with AI analyses.
+    Includes validation status.
+    """
+    if current_user.role.value != "validator":
+        raise HTTPException(status_code=403, detail="Only validators can access this endpoint")
+    
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Verify this validator is assigned to this module
+    assignment_check = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).first()
+    
+    if not assignment_check:
+        raise HTTPException(status_code=403, detail="You are not assigned to this module")
+    
+    # Get all assignments for this validator in this module
+    assignments = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).all()
+    
+    result = []
+    for assignment in assignments:
+        # Get case
+        case = db.query(CourtCase).filter(CourtCase.id == assignment.case_id).first()
+        
+        # Get AI analysis
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == assignment.case_id
+        ).first()
+        
+        # Get validation through assignment relationship
+        validation = db.query(ValidationFeedback).filter(
+            ValidationFeedback.assignment_id == assignment.id
+        ).first()
+        
+        # Get sample order
+        sample = db.query(ModuleCaseSample).filter(
+            ModuleCaseSample.module_id == module_id,
+            ModuleCaseSample.case_id == assignment.case_id
+        ).first()
+        
+        case_data = {
+            "case_id": case.id,
+            "case_name": case.case_name,
+            "court": case.court,
+            "case_date": case.case_date,
+            "state": case.state,
+            "sample_order": sample.sample_order if sample else None,
+            # Additional fields validators might want to see
+            "docket_number": case.docket_number,
+            "judges_names": case.judges_names,
+            "election_type": case.election_type,
+            "party_who_appointed_judge": case.party_who_appointed_judge,
+            "opinion_text": case.opinion_text,
+            "dissent_text": case.dissent_text,
+            "concur_text": case.concur_text,
+        }
+        
+        if ai_analysis:
+            case_data["ai_analysis"] = {
+                "ai_answer": ai_analysis.ai_answer,
+                "ai_reasoning": ai_analysis.ai_reasoning,
+                "ai_confidence": ai_analysis.ai_confidence,
+                "model_used": ai_analysis.model_used
+            }
+        else:
+            case_data["ai_analysis"] = None
+                
+        if validation:
+            case_data["validation"] = {
+                "is_correct": validation.is_correct,
+                "corrected_answer": validation.validator_correction,
+                "validator_reasoning": validation.validator_reasoning,
+                "validator_notes": validation.validator_notes,
+                "validated_at": validation.submitted_at
+            }
+
+        else:
+            case_data["validation"] = None
+        
+        result.append(case_data)
+    
+    # Sort by sample_order
+    result.sort(key=lambda x: x["sample_order"] if x["sample_order"] else 999)
+    
+    return result
+
+
+@router.post("/validations")
+def submit_validation(
+    module_id: int,
+    case_id: int,
+    is_correct: bool,
+    corrected_answer: Optional[str] = None,
+    validator_reasoning: Optional[str] = None,
+    validator_notes: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Submit or update a validation for a case.
+    """
+    if current_user.role.value != "validator":
+        raise HTTPException(status_code=403, detail="Only validators can submit validations")
+    
+    # Verify assignment
+    assignment = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.case_id == case_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).first()
+    
+    if not assignment:
+        raise HTTPException(status_code=403, detail="You are not assigned to validate this case")
+    
+    # Check if validation already exists for this assignment
+    existing = db.query(ValidationFeedback).filter(
+        ValidationFeedback.assignment_id == assignment.id
+    ).first()
+
+    if existing:
+        # Update existing validation
+        existing.is_correct = is_correct
+        existing.validator_correction = corrected_answer
+        existing.validator_reasoning = validator_reasoning
+        existing.validator_notes = validator_notes
+        existing.submitted_at = func.now()
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Validation updated",
+            "validation_id": existing.id
+        }
+
+    else:
+        # Get AI analysis for this case
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == case_id
+        ).first()
+        
+        if not ai_analysis:
+            raise HTTPException(status_code=404, detail="AI analysis not found for this case")
+        
+        # Create new validation
+        validation = ValidationFeedback(
+            assignment_id=assignment.id,
+            ai_analysis_id=ai_analysis.id,
+            is_correct=is_correct,
+            validator_correction=corrected_answer,
+            validator_reasoning=validator_reasoning,
+            validator_notes=validator_notes
+        )
+        db.add(validation)
+        db.commit()    
+        
+        return {
+            "success": True,
+            "message": "Validation submitted",
+            "validation_id": validation.id
+        }

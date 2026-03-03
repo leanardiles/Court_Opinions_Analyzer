@@ -185,9 +185,39 @@ export const modulesAPI = {
     return response.data;
   },
 
+  getModule: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}`);
+    return response.data;
+  },
+
   // Mock AI Analysis
   launchMockAI: async (moduleId) => {
     const response = await apiClient.post(`/modules/modules/${moduleId}/launch-mock-ai`);
     return response.data;
   },
+};
+
+// Validator API
+export const validatorAPI = {
+  // Get validator's assigned modules
+  getMyAssignments: async () => {
+    const response = await apiClient.get('/modules/validators/my-assignments');
+    return response.data;
+  },
+
+  // Get cases for validation in a module
+  getValidationCases: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}/validation-cases`);
+    return response.data;
+  },
+
+  // Submit validation
+  submitValidation: async (moduleId, caseId, validationData) => {
+    const response = await apiClient.post('/modules/validations', {
+      module_id: moduleId,
+      case_id: caseId,
+      ...validationData
+    });
+    return response.data;
+  }
 };

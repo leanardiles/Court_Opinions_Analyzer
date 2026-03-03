@@ -168,9 +168,26 @@ def get_project(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have access to this project"
+            )   
+    elif current_user.role.value == "validator":
+        # Validators can view projects where they have module assignments
+        from app.models import ValidatorAssignment, VerificationModule
+        
+        has_assignment = db.query(ValidatorAssignment).join(
+            VerificationModule,
+            ValidatorAssignment.module_id == VerificationModule.id
+        ).filter(
+            VerificationModule.project_id == project_id,
+            ValidatorAssignment.validator_id == current_user.id
+        ).first()
+        
+        if not has_assignment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this project"
             )
     else:
-        # Validators need assignments (implement later)
+        # Unknown role
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have access to this project"
@@ -194,7 +211,7 @@ def get_project(
         "updated_at": project.updated_at,
     }
     
-    # Add admin email - 🆕 NEW
+    # Add admin email
     admin = db.query(User).filter(User.id == project.admin_id).first()
     if admin:
         project_dict["admin_email"] = admin.email
