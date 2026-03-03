@@ -3,7 +3,7 @@
 ML-powered web application for analyzing US court decisions with human-in-the-loop verification.
 
 **Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)
-**Developer:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba 
+**Team Members:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba 
 **Status:** 🚧 In Development
 
 ---
@@ -20,19 +20,22 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 
 ✅ **Role-Based Access Control** (Admin, Scholar, Validator)  
 ✅ **JWT Authentication** with secure password hashing  
-✅ **Database-Driven Architecture** (5-table relational schema)  
+✅ **Database-Driven Architecture** (13-table relational schema)  
 ✅ **RESTful API** with auto-generated documentation  
 ✅ **Parquet File Processing** with automated parsing  
 ✅ **Project Management** with CRUD operations and scholar assignment  
-✅ **Project Lifecycle Workflow** (draft → ready → active → launched)  
+✅ **Project Lifecycle Workflow** (draft → ready → active)  
 ✅ **Parquet Upload & Removal** (one file per project)  
-✅ **Dynamic Case Viewer** with column selector  
+✅ **Dynamic Case Viewer** with on-demand modal  
 ✅ **Cardozo Law Branded UI** (professional design system)  
-✅ **Clickable Project Cards** navigate to project details  
-🚧 **Scholar Dashboard** with module management (Coming next)  
-🚧 **Verification Modules** with configurable questions (Coming next)  
-🚧 **AI Integration** (Claude/GPT-4) (Coming soon)  
-🚧 **Validator Workflow** (Coming soon)
+✅ **Module-Based Verification** with configurable research questions  
+✅ **Two-Level Context System** (project-wide + module-specific)  
+✅ **Mock AI Analysis** for testing validator workflow  
+✅ **Validator Dashboard** showing assigned modules with progress  
+✅ **Case-by-Case Validation Interface** with AI review and corrections  
+🚧 **Scholar Review Interface** (Coming next)  
+🚧 **Real AI Integration** (Claude API - Coming soon)  
+🚧 **Multi-Round Feedback Loop** (Coming soon)
 
 ---
 
@@ -320,7 +323,21 @@ git push
 - [x] Module status auto-updates (ready_for_validation → ai_analyzing → validation_in_progress)
 - [x] Token/cost tracking in mock responses
 
-**✅ UI Improvements (Mar 2, 2026)**
+**✅ Completed (Day 6 - Mar 3, 2026)**
+- [x] Validator dashboard showing assigned modules across all projects
+- [x] Module assignment cards with progress tracking (X/Y cases completed)
+- [x] Validation interface for case-by-case AI review
+- [x] AI analysis display with answer, reasoning, and confidence
+- [x] Correct/Incorrect decision buttons
+- [x] Correction form with reasoning (shown when marking incorrect)
+- [x] Context modal displaying project and module guidance
+- [x] Navigation between cases (Previous/Next buttons)
+- [x] Progress tracking with visual progress bar
+- [x] Validation submission endpoint with ValidationFeedback model
+- [x] Role-based routing (validators → ValidatorDashboard)
+- [x] Project access permissions for validators via assignments
+
+**✅ UI Improvements (Mar 2-3, 2026)**
 - [x] Dashboard titles: Admin/Scholar/Validator Dashboard
 - [x] Removed project launch button (module-based workflow)
 - [x] Parquet viewer moved to on-demand modal
@@ -332,10 +349,10 @@ git push
   - Backend needs module_count query in list_projects endpoint
   - Minor fix - functionality works, display issue only
 
-**🚧 Next Steps (Day 6-10)**
-- [ ] **Day 6-7:** Validator dashboard and verification UI
-- [ ] **Day 8:** Scholar review interface
+**🚧 Next Steps (Day 7-10)**
+- [ ] **Day 7:** Completion summary and validator workflow refinements
+- [ ] **Day 8:** Scholar review interface for validator corrections
 - [ ] **Day 9:** Real AI integration (Claude API)
 - [ ] **Day 10:** Round 2 & feedback loop
 
-**Progress: 5/10 days complete (50%)** 🎯
+**Progress: 6/10 days complete (60%)** 🎯
