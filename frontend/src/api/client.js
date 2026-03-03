@@ -184,4 +184,10 @@ export const modulesAPI = {
     const response = await apiClient.get(`/modules/modules/${moduleId}/assignments`);
     return response.data;
   },
+
+  // Mock AI Analysis
+  launchMockAI: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/launch-mock-ai`);
+    return response.data;
+  },
 };

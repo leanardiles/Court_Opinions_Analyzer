@@ -322,6 +322,20 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleLaunchMockAI = async (moduleId) => {
+    if (!window.confirm('Launch AI analysis for this module?\n\nThis will generate mock AI responses for all sampled cases.')) {
+      return;
+    }
+    
+    try {
+      const result = await modulesAPI.launchMockAI(moduleId);
+      alert(result.message || 'AI analysis completed successfully!');
+      loadModules(); // Reload to show updated status
+    } catch (err) {
+      alert('Failed to launch AI analysis: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
   const handleSaveContext = async () => {
     setSavingContext(true);
     try {
@@ -843,6 +857,16 @@ export default function ProjectDetailPage() {
                                 className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
                               >
                                 👤 Assign Validator
+                              </button>
+                            )}
+
+                            {/*Launch AI Button (fake AI analysis, to delete later when AI API is used*/}
+                            {assignment.sampled && assignment.validator && module.status === 'ready_for_validation' && (
+                              <button
+                                onClick={() => handleLaunchMockAI(module.id)}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+                              >
+                                🚀 Launch AI Analysis
                               </button>
                             )}
                           </div>

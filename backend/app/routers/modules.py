@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
 from datetime import datetime
+import random
 
 from app.database import get_db
-from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase
+from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase, AIAnalysis
 from app.schemas import (
     VerificationModuleCreate, 
     VerificationModuleResponse, 
@@ -381,4 +382,107 @@ def get_module_assignments(
         "sample_count": sample_count,
         "sampled": sample_count > 0,
         "validator": validator_info
+    }
+
+@router.post("/modules/{module_id}/launch-mock-ai")
+def launch_mock_ai_analysis(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate mock AI analyses for all sampled cases in a module.
+    Creates realistic dummy answers for testing validator workflow.
+    """
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check permissions (assigned scholar or admin)
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the assigned scholar can launch AI analysis")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    # Check if cases are sampled
+    samples = db.query(ModuleCaseSample).filter(
+        ModuleCaseSample.module_id == module_id
+    ).all()
+    
+    if not samples:
+        raise HTTPException(status_code=400, detail="Must sample cases before launching AI analysis")
+    
+    # Check if validator assigned
+    validator_assigned = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id
+    ).first()
+    
+    if not validator_assigned:
+        raise HTTPException(status_code=400, detail="Must assign validator before launching AI analysis")
+    
+    # Check if AI already ran
+    existing_analyses = db.query(AIAnalysis).filter(
+        AIAnalysis.module_id == module_id
+    ).count()
+    
+    if existing_analyses > 0:
+        raise HTTPException(status_code=400, detail="AI analysis already completed for this module")
+    
+    # Update module status to analyzing
+    module.status = "ai_analyzing"
+    db.commit()
+    
+    # Generate mock AI analyses for each sampled case
+    for sample in samples:
+        # Generate mock answer based on answer type
+        if module.answer_type == "yes_no":
+            mock_answer = random.choice(["Yes", "No"])
+            confidence = random.randint(75, 95) / 100.0
+            reasoning = f"Based on analysis of the opinion text, the evidence {'supports' if mock_answer == 'Yes' else 'does not support'} an affirmative answer. Found {random.randint(2, 5)} relevant passages."
+        
+        elif module.answer_type == "multiple_choice":
+            mock_answer = random.choice(module.answer_options)
+            confidence = random.randint(70, 95) / 100.0
+            reasoning = f"Analysis indicates '{mock_answer}' based on {random.randint(3, 7)} mentions of related keywords and contextual evidence in the opinion."
+        
+        elif module.answer_type == "integer":
+            mock_answer = str(random.randint(1, 100))
+            confidence = random.randint(65, 90) / 100.0
+            reasoning = f"Calculated value of {mock_answer} based on temporal analysis and date references found in the case text."
+        
+        elif module.answer_type == "date":
+            mock_answer = f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+            confidence = random.randint(70, 90) / 100.0
+            reasoning = f"Date extracted from opinion text based on explicit temporal references."
+        
+        else:  # text
+            mock_answer = f"Mock analysis result for case {sample.case_id}"
+            confidence = random.randint(60, 85) / 100.0
+            reasoning = "Free-form analysis based on comprehensive review of case content and legal reasoning."
+        
+        # Create AI analysis record
+        analysis = AIAnalysis(
+            module_id=module_id,
+            case_id=sample.case_id,
+            ai_answer=mock_answer,
+            ai_reasoning=reasoning,
+            ai_confidence=confidence,
+            ai_round=1,
+            model_used="mock-ai-v1",
+            tokens_used=random.randint(500, 1500),
+            cost=random.randint(5, 25) / 1000.0  # $0.005 - $0.025
+        )
+        db.add(analysis)
+    
+    # Update module status to validation in progress
+    module.status = "validation_in_progress"
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Mock AI analysis completed for {len(samples)} cases",
+        "analyzed_count": len(samples),
+        "model": "mock-ai-v1"
     }
