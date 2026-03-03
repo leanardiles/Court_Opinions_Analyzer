@@ -312,16 +312,30 @@ git push
 - [x] Validator selection modal
 - [x] Module cards show sample count and validator
 
-**🐛 Minor Bug to Fix**
-- [ ] Module count showing 0 on scholar dashboard
-  - Need to add module_count query to backend list_projects endpoint
-  - Verify VerificationModule import in projects.py
+**✅ Completed (Day 5 - Mar 2, 2026)**
+- [x] Mock AI analysis generation endpoint
+- [x] Realistic dummy answers by answer type (yes/no, multiple choice, integer, text, date)
+- [x] Random confidence scores (65-95%) and plausible reasoning
+- [x] Launch AI Analysis button with loading states
+- [x] Module status auto-updates (ready_for_validation → ai_analyzing → validation_in_progress)
+- [x] Token/cost tracking in mock responses
 
-**🚧 Next Steps (Day 5-10)**
-- [ ] **Day 5:** Mock AI analysis generation (testing workflow)
+**✅ UI Improvements (Mar 2, 2026)**
+- [x] Dashboard titles: Admin/Scholar/Validator Dashboard
+- [x] Removed project launch button (module-based workflow)
+- [x] Parquet viewer moved to on-demand modal
+- [x] View Source File button for cleaner project pages
+- [x] Full-screen modal with column selector and cases table
+
+**🐛 Known Issues**
+- [ ] Module count showing 0 on scholar dashboard
+  - Backend needs module_count query in list_projects endpoint
+  - Minor fix - functionality works, display issue only
+
+**🚧 Next Steps (Day 6-10)**
 - [ ] **Day 6-7:** Validator dashboard and verification UI
 - [ ] **Day 8:** Scholar review interface
 - [ ] **Day 9:** Real AI integration (Claude API)
 - [ ] **Day 10:** Round 2 & feedback loop
 
-**Progress: 4/10 days complete (40%)** 🎯
+**Progress: 5/10 days complete (50%)** 🎯
