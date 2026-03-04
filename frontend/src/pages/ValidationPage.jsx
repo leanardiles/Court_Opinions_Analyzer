@@ -116,10 +116,10 @@ export default function ValidationPage({ user, onLogout }) {
       if (currentIndex < cases.length - 1) {
         setCurrentIndex(currentIndex + 1);
       } else {
-        // All cases completed
-        alert('All cases validated! Returning to dashboard.');
-        navigate('/dashboard');
+        // All cases completed - navigate to completion summary
+        navigate(`/validation-complete/${moduleId}`);
       }
+
     } catch (err) {
       console.error('Failed to save validation:', err);
       alert('Failed to save validation: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -246,8 +246,13 @@ export default function ValidationPage({ user, onLogout }) {
             </div>
             <div>
               <span className="font-semibold text-gray-700">Date:</span>
-              <p className="text-gray-900">{currentCase.case_date || 'N/A'}</p>
+              <p className="text-gray-900">
+                {currentCase.case_date 
+                  ? new Date(currentCase.case_date).toLocaleDateString() 
+                  : 'N/A'}
+              </p>
             </div>
+
             <div>
               <span className="font-semibold text-gray-700">State:</span>
               <p className="text-gray-900">{currentCase.state || 'N/A'}</p>

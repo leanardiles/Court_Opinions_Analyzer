@@ -17,6 +17,7 @@ import ViewCasesPage from './pages/ViewCasesPage';
 import ValidatorDashboard from './pages/ValidatorDashboard';
 import ValidationPage from './pages/ValidationPage';
 import { authAPI } from './api/client';
+import ValidationCompletionPage from './pages/ValidationCompletionPage';
 
 
 function App() {
@@ -87,6 +88,9 @@ function App() {
             
             {/* Validation Interface */}
             <Route path="/validate/:moduleId" element={<ValidationPage user={user} onLogout={handleLogout} />} />
+
+            {/* Validation Completion Summary */}
+            <Route path="/validation-complete/:moduleId" element={<ValidationCompletionPage user={user} onLogout={handleLogout} />} />
 
             {/* Project Detail */}
             <Route path="/project/:projectId" element={<ProjectDetailPage />} />

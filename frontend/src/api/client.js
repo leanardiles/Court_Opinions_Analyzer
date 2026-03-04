@@ -213,10 +213,15 @@ export const validatorAPI = {
 
   // Submit validation
   submitValidation: async (moduleId, caseId, validationData) => {
-    const response = await apiClient.post('/modules/validations', {
-      module_id: moduleId,
-      case_id: caseId,
-      ...validationData
+    const response = await apiClient.post('/modules/validations', null, {
+      params: {
+        module_id: moduleId,
+        case_id: caseId,
+        is_correct: validationData.is_correct,
+        corrected_answer: validationData.corrected_answer,
+        validator_reasoning: validationData.validator_reasoning,
+        validator_notes: validationData.validator_notes
+      }
     });
     return response.data;
   }
