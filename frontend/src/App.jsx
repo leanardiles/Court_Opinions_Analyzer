@@ -18,7 +18,8 @@ import ValidatorDashboard from './pages/ValidatorDashboard';
 import ValidationPage from './pages/ValidationPage';
 import { authAPI } from './api/client';
 import ValidationCompletionPage from './pages/ValidationCompletionPage';
-
+import ModuleReviewPage from './pages/ModuleReviewPage';
+import CorrectionReviewPage from './pages/CorrectionReviewPage';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -103,6 +104,12 @@ function App() {
             
             {/* Catch all - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" />} />
+
+            {/* Module Review (Scholar) */}
+            <Route path="/module-review/:moduleId" element={<ModuleReviewPage user={user} onLogout={handleLogout} />} />
+
+            {/* Correction Review (Scholar) */}
+            <Route path="/review-corrections/:moduleId" element={<CorrectionReviewPage user={user} onLogout={handleLogout} />} />
           </>
         ) : (
           <Route path="*" element={<Navigate to="/" />} />

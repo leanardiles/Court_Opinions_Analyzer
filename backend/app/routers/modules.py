@@ -9,15 +9,22 @@ from typing import List
 from datetime import datetime
 from typing import Optional
 import random
+from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase, AIAnalysis, ValidationFeedback
+from app.models import User, Project, VerificationModule, ModuleCaseSample, ValidatorAssignment, CourtCase, AIAnalysis, ValidationFeedback, FeedbackLibrary
 from app.schemas import (
     VerificationModuleCreate, 
     VerificationModuleResponse, 
     VerificationModuleUpdate
 )
 from app.dependencies import get_current_user
+
+
+class ReviewCorrectionRequest(BaseModel):
+    validation_id: int
+    approve: bool
+    scholar_notes: Optional[str] = None
 
 router = APIRouter(prefix="/modules", tags=["Verification Modules"])
 
@@ -724,3 +731,317 @@ def submit_validation(
             "message": "Validation submitted",
             "validation_id": validation.id
         }
+    
+@router.get("/modules/{module_id}/validation-summary")
+def get_validation_summary(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get validation summary for a module.
+    Shows AI accuracy, corrections pending, validator info.
+    """
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check permissions (scholar or admin)
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get all AI analyses for this module
+    total_cases = db.query(AIAnalysis).filter(
+        AIAnalysis.module_id == module_id
+    ).count()
+    
+    # Get all validations
+    validations = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id
+    ).all()
+    
+    # Count correct/incorrect
+    ai_correct = sum(1 for v in validations if v.is_correct)
+    ai_incorrect = sum(1 for v in validations if not v.is_correct)
+    
+    # Get validator info
+    validator_assignment = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id
+    ).first()
+    
+    validator_info = None
+    if validator_assignment:
+        validator = db.query(User).filter(User.id == validator_assignment.validator_id).first()
+        if validator:
+            # Calculate validator's past approval rate
+            past_validations = db.query(ValidationFeedback).join(
+                ValidatorAssignment,
+                ValidationFeedback.assignment_id == ValidatorAssignment.id
+            ).filter(
+                ValidatorAssignment.validator_id == validator.id,
+                ValidationFeedback.scholar_reviewed == True
+            ).all()
+            
+            total_past = len(past_validations)
+            approved_past = sum(1 for v in past_validations if v.scholar_approved)
+            approval_rate = (approved_past / total_past * 100) if total_past > 0 else None
+            
+            validator_info = {
+                "id": validator.id,
+                "email": validator.email,
+                "full_name": validator.full_name,
+                "past_validations": total_past,
+                "past_approval_rate": round(approval_rate) if approval_rate else None
+            }
+    
+    # Count corrections by review status
+    corrections_pending = sum(1 for v in validations if not v.is_correct and not v.scholar_reviewed)
+    corrections_approved = sum(1 for v in validations if not v.is_correct and v.scholar_reviewed and v.scholar_approved)
+    corrections_rejected = sum(1 for v in validations if not v.is_correct and v.scholar_reviewed and not v.scholar_approved)
+    
+    return {
+        "module_id": module_id,
+        "module_name": module.module_name,
+        "question_text": module.question_text,
+        "answer_type": module.answer_type,
+        "total_cases": total_cases,
+        "ai_correct": ai_correct,
+        "ai_incorrect": ai_incorrect,
+        "ai_accuracy_percentage": round((ai_correct / total_cases * 100)) if total_cases > 0 else 0,
+        "validator": validator_info,
+        "corrections_pending": corrections_pending,
+        "corrections_approved": corrections_approved,
+        "corrections_rejected": corrections_rejected,
+        "total_corrections": ai_incorrect
+    }
+
+
+@router.get("/modules/{module_id}/corrections")
+def get_corrections_for_review(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all validator corrections for scholar to review.
+    Only returns cases where validator marked AI as incorrect.
+    """
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check permissions
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get all incorrect validations (corrections) that haven't been reviewed yet
+    validations = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidationFeedback.is_correct == False,  # Only corrections
+        ValidationFeedback.scholar_reviewed == False  # ← Add this line: Only pending
+    ).all()
+    
+    result = []
+    for validation in validations:
+        # Get case
+        assignment = db.query(ValidatorAssignment).filter(
+            ValidatorAssignment.id == validation.assignment_id
+        ).first()
+        
+        case = db.query(CourtCase).filter(CourtCase.id == assignment.case_id).first()
+        
+        # Get AI analysis
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == assignment.case_id
+        ).first()
+        
+        # Get validator
+        validator = db.query(User).filter(User.id == assignment.validator_id).first()
+        
+        result.append({
+            "validation_id": validation.id,
+            "case_id": case.id,
+            "case_name": case.case_name,
+            "court": case.court,
+            "case_date": str(case.case_date) if case.case_date else None,
+            "state": case.state,
+            "ai_answer": ai_analysis.ai_answer if ai_analysis else None,
+            "ai_reasoning": ai_analysis.ai_reasoning if ai_analysis else None,
+            "ai_confidence": ai_analysis.ai_confidence if ai_analysis else None,
+            "validator_correction": validation.validator_correction,
+            "validator_reasoning": validation.validator_reasoning,
+            "validator_notes": validation.validator_notes,
+            "validator_email": validator.email if validator else None,
+            "scholar_reviewed": validation.scholar_reviewed,
+            "scholar_approved": validation.scholar_approved,
+            "scholar_notes": validation.scholar_notes
+        })
+    
+    return result
+
+
+@router.post("/modules/{module_id}/review-correction")
+def review_correction(
+    module_id: int,
+    request: ReviewCorrectionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Scholar approves or rejects a validator's correction.
+    If approved, adds to feedback library for Round 2.
+    """
+    validation_id = request.validation_id
+    approve = request.approve
+    scholar_notes = request.scholar_notes
+
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check permissions
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get validation
+    validation = db.query(ValidationFeedback).filter(
+        ValidationFeedback.id == validation_id
+    ).first()
+    
+    if not validation:
+        raise HTTPException(status_code=404, detail="Validation not found")
+    
+    # Update validation with scholar review
+    validation.scholar_reviewed = True
+    validation.scholar_approved = approve
+    validation.scholar_notes = scholar_notes
+    validation.reviewed_at = func.now()
+    
+    # If approved, add to feedback library
+    if approve:
+        # Get assignment and AI analysis for context
+        assignment = db.query(ValidatorAssignment).filter(
+            ValidatorAssignment.id == validation.assignment_id
+        ).first()
+        
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == assignment.case_id
+        ).first()
+        
+        # Check if already in feedback library (check by case + module)
+        existing_feedback = db.query(FeedbackLibrary).filter(
+            FeedbackLibrary.module_id == module_id,
+            FeedbackLibrary.example_case_id == assignment.case_id
+        ).first()
+        
+        if not existing_feedback:
+            # Create feedback library entry with correct field names
+            feedback = FeedbackLibrary(
+                module_id=module_id,
+                question_text=module.question_text,
+                wrong_answer=ai_analysis.ai_answer if ai_analysis else None,
+                correct_answer=validation.validator_correction,
+                correction_reason=validation.validator_reasoning,
+                example_case_id=assignment.case_id,
+                helped_improve=None  # Will be evaluated in Round 2
+            )
+            db.add(feedback)
+ 
+    return {
+        "success": True,
+        "validation_id": validation_id,
+        "approved": approve,
+        "added_to_feedback_library": approve
+    }
+
+
+@router.post("/modules/{module_id}/trust-validator")
+def trust_validator_bulk_approve(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Scholar trusts validator - bulk approve all pending corrections.
+    """
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check permissions
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get all unreviewed corrections
+    validations = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidationFeedback.is_correct == False,
+        ValidationFeedback.scholar_reviewed == False
+    ).all()
+    
+    count = 0
+    from app.models import FeedbackLibrary
+    
+    for validation in validations:
+        # Mark as reviewed and approved
+        validation.scholar_reviewed = True
+        validation.scholar_approved = True
+        validation.scholar_notes = "Auto-approved via Trust Validator"
+        validation.reviewed_at = func.now()
+        
+        # Add to feedback library
+        assignment = db.query(ValidatorAssignment).filter(
+            ValidatorAssignment.id == validation.assignment_id
+        ).first()
+        
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == assignment.case_id
+        ).first()
+        
+        feedback = FeedbackLibrary(
+            module_id=module_id,
+            question_text=module.question_text,
+            wrong_answer=ai_analysis.ai_answer if ai_analysis else None,
+            correct_answer=validation.validator_correction,
+            correction_reason=validation.validator_reasoning,
+            example_case_id=assignment.case_id,
+            helped_improve=None
+        )
+        db.add(feedback)
+        count += 1
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "approved_count": count,
+        "message": f"Bulk approved {count} corrections"
+    }

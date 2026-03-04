@@ -436,9 +436,7 @@ export default function ProjectDetailPage() {
           {project?.description && (
             <p className="text-gray-600">{project.description}</p>
           )}
-          <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
-            <span>{cases.length} cases</span>
-            <span>·</span>
+          <div className="flex items-center gap-4 text-sm text-gray-500 mt-6">
             <span>Created {new Date(project?.created_at).toLocaleDateString()}</span>
             
             {/* Show Scholar for Admin */}
@@ -456,7 +454,7 @@ export default function ProjectDetailPage() {
               </>
             )}
             
-            {/* Show Admin and Validators for Scholar */}
+            {/* Show Admin for Scholar */}
             {user?.role === 'scholar' && (
               <>
                 {project?.admin_email && (
@@ -472,16 +470,6 @@ export default function ProjectDetailPage() {
                     </span>
                   </>
                 )}
-                
-                <span>·</span>
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="font-medium text-green-600">
-                    Validator(s): <span className="text-gray-400 italic">Unassigned</span>
-                  </span>
-                </span>
               </>
             )}
           </div>
@@ -866,7 +854,7 @@ export default function ProjectDetailPage() {
                             {!assignment.sampled && (
                               <button
                                 onClick={() => handleSampleCases(module.id)}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
+                                className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
                               >
                                 🎲 Sample Cases
                               </button>
@@ -890,6 +878,28 @@ export default function ProjectDetailPage() {
                                 🚀 Launch AI Analysis
                               </button>
                             )}
+
+                            {module.status === 'validation_in_progress' && (
+                              <>
+                                {/* Check if there are pending corrections */}
+                                {assignment.corrections_pending > 0 ? (
+                                  <button 
+                                    onClick={() => navigate(`/module-review/${module.id}`)}
+                                    className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition"
+                                  >
+                                    📊 Review Corrections ({assignment.corrections_pending})
+                                  </button>
+                                ) : (
+                                  <button 
+                                    onClick={() => navigate(`/module-review/${module.id}`)}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition"
+                                  >
+                                    ✓ Corrections Reviewed
+                                  </button>
+                                )}
+                              </>
+                            )}
+
                           </div>
                         </div>
                       </div>

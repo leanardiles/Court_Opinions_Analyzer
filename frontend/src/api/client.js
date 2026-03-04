@@ -195,7 +195,35 @@ export const modulesAPI = {
     const response = await apiClient.post(`/modules/modules/${moduleId}/launch-mock-ai`);
     return response.data;
   },
-};
+  
+  // Scholar Review endpoints
+  getValidationSummary: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}/validation-summary`);
+    return response.data;
+  },
+
+  getCorrections: async (moduleId) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}/corrections`);
+    return response.data;
+  },
+
+  reviewCorrection: async (moduleId, validationId, approve, scholarNotes) => {
+    const response = await apiClient.post(
+      `/modules/modules/${moduleId}/review-correction`,
+      {
+        validation_id: validationId,
+        approve: approve,
+        scholar_notes: scholarNotes || null
+      }
+    );
+    return response.data;
+  },
+
+  trustValidator: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/trust-validator`);
+    return response.data;
+  },
+}  
 
 // Validator API
 export const validatorAPI = {
