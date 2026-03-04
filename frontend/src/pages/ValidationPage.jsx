@@ -184,10 +184,10 @@ export default function ValidationPage({ user, onLogout }) {
               </p>
             </div>
             <button
-              onClick={() => setShowContextModal(true)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition"
+              onClick={() => navigate('/dashboard')}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition"
             >
-              📄 View Context
+              Back to Dashboard
             </button>
           </div>
 
@@ -208,7 +208,7 @@ export default function ValidationPage({ user, onLogout }) {
           </div>
 
           {/* Navigation */}
-          <div className="flex gap-2">
+          <div className="flex justify-between gap-2">
             <button
               onClick={handlePrevious}
               disabled={currentIndex === 0}
@@ -223,19 +223,13 @@ export default function ValidationPage({ user, onLogout }) {
             >
               Next →
             </button>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="ml-auto px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition"
-            >
-              Back to Dashboard
-            </button>
           </div>
         </div>
 
         {/* Case Information */}
         <div className="card mb-6">
           <h2 className="text-lg font-semibold text-cardozo-dark mb-4">Case Information</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="font-semibold text-gray-700">Case Name:</span>
               <p className="text-gray-900">{currentCase.case_name}</p>
@@ -252,7 +246,6 @@ export default function ValidationPage({ user, onLogout }) {
                   : 'N/A'}
               </p>
             </div>
-
             <div>
               <span className="font-semibold text-gray-700">State:</span>
               <p className="text-gray-900">{currentCase.state || 'N/A'}</p>
@@ -262,7 +255,15 @@ export default function ValidationPage({ user, onLogout }) {
 
         {/* Research Question */}
         <div className="card mb-6 bg-blue-50 border-blue-200">
-          <h2 className="text-lg font-semibold text-cardozo-dark mb-2">Research Question</h2>
+          <div className="flex justify-between items-start mb-2">
+            <h2 className="text-lg font-semibold text-cardozo-dark">Research Question</h2>
+            <button
+              onClick={() => setShowContextModal(true)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition flex-shrink-0"
+            >
+              📄 View Context
+            </button>
+          </div>
           <p className="text-gray-900 font-medium">{module?.question_text}</p>
           <p className="text-sm text-gray-600 mt-2">
             Answer Type: {module?.answer_type.replace(/_/g, ' ')}
@@ -272,36 +273,40 @@ export default function ValidationPage({ user, onLogout }) {
         {/* AI Analysis */}
         {currentCase.ai_analysis && (
           <div className="card mb-6">
-            <h2 className="text-lg font-semibold text-cardozo-dark mb-4">🤖 AI Analysis</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <span className="font-semibold text-gray-700">AI's Answer:</span>
-                <p className="text-lg text-cardozo-blue font-medium mt-1">
-                  {currentCase.ai_analysis.ai_answer}
-                </p>
+            <div className="space-y-6">
+              {/* AI Answer and Confidence - Side by Side */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* AI Answer - 2/3 width */}
+                <div className="md:col-span-2">
+                  <h2 className="text-lg font-semibold text-cardozo-dark mb-2">AI's Answer</h2>
+                  <p className="text-lg text-cardozo-blue font-medium">
+                    {currentCase.ai_analysis.ai_answer}
+                  </p>
+                </div>
+
+                {/* Confidence - 1/3 width */}
+                <div className="md:col-span-1">
+                  <h2 className="text-lg font-semibold text-cardozo-dark mb-2">Confidence</h2>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full"
+                        style={{ width: `${currentCase.ai_analysis.ai_confidence * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {Math.round(currentCase.ai_analysis.ai_confidence * 100)}%
+                    </span>
+                  </div>
+                </div>
               </div>
 
+              {/* AI Reasoning - Full Width Below */}
               <div>
-                <span className="font-semibold text-gray-700">AI's Reasoning:</span>
-                <p className="text-gray-900 mt-1 bg-gray-50 p-3 rounded-lg">
+                <h2 className="text-lg font-semibold text-cardozo-dark mb-2">AI's Reasoning</h2>
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">
                   {currentCase.ai_analysis.ai_reasoning}
                 </p>
-              </div>
-
-              <div>
-                <span className="font-semibold text-gray-700">Confidence:</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full"
-                      style={{ width: `${currentCase.ai_analysis.ai_confidence * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    {Math.round(currentCase.ai_analysis.ai_confidence * 100)}%
-                  </span>
-                </div>
               </div>
             </div>
           </div>
