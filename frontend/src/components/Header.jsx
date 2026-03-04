@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-
+import cardozoLogo from '../assets/cardozo-logo.png';
 export default function Header({ user, onLogout }) {
   const navigate = useNavigate();
 
@@ -31,16 +31,11 @@ export default function Header({ user, onLogout }) {
               className="flex items-center gap-4 cursor-pointer" 
               onClick={() => navigate('/dashboard')}
             >
-              <div className="text-white">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-serif font-bold tracking-wide">
-                    CARDOZO LAW
-                  </h1>
-                  <div className="text-xs opacity-75">
-                    50 YEARS OF<br/>DARING DAILY
-                  </div>
-                </div>
-              </div>
+              <img 
+                src={cardozoLogo} 
+                alt="Cardozo Law - 50 Years of Daring Daily" 
+                className="h-12"
+              />
             </div>
             
             {user && (
@@ -57,8 +52,6 @@ export default function Header({ user, onLogout }) {
                 </button>
               </div>
             )}
-
-
           </div>
         </div>
       </header>
