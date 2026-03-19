@@ -23,9 +23,17 @@ class AIService:
     
     # Available providers
     PROVIDERS = {
+        #Free/Local
         'dummy': 'Dummy AI (Mock responses)',
         'ollama-8b': 'Llama 3.1 8B (Ollama, local)',
         'ollama-70b': 'Llama 3.1 70B (Ollama, requires GPU)'
+
+        # Paid
+        # [placeholder]
+
+        # Trained
+        # [placeholder]
+
     }
     
     def __init__(self, provider: str = "ollama-8b"):

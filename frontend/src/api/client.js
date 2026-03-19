@@ -10,14 +10,33 @@ const apiClient = axios.create({
   },
 });
 
-// Add token to requests if it exists
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Request interceptor - Add auth token to all requests
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+// Response interceptor - Handle auth errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - clear token and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth API
 export const authAPI = {
@@ -77,13 +96,13 @@ export const projectsAPI = {
     return response.data;
   },
 
-  //Send project to scholar
+  // Send project to scholar
   sendToScholar: async (projectId) => {
     const response = await apiClient.patch(`/projects/${projectId}/send-to-scholar`);
     return response.data;
   },
 
-  //Update AI model
+  // Update AI model
   updateAIModel: async (projectId, aiModel) => {
     const response = await apiClient.patch(
       `/projects/${projectId}/ai-model?ai_model=${encodeURIComponent(aiModel)}`
@@ -223,7 +242,13 @@ export const modulesAPI = {
     const response = await apiClient.post(`/modules/modules/${moduleId}/trust-validator`);
     return response.data;
   },
-}  
+
+  // Get AI providers
+  getAIProviders: async () => {
+    const response = await apiClient.get('/modules/ai-providers');
+    return response.data;
+  },
+};
 
 // Validator API
 export const validatorAPI = {
@@ -254,3 +279,5 @@ export const validatorAPI = {
     return response.data;
   }
 };
+
+export default apiClient;

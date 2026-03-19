@@ -144,6 +144,7 @@ class VerificationModuleCreate(BaseModel):
     answer_options: Optional[List[str]] = None  # Required if answer_type is "multiple_choice"
     module_context: Optional[str] = None
     sample_size: int = Field(..., gt=0, le=1000)  # Between 1 and 1000
+    ai_provider: str = "ollama-8b"
 
 class VerificationModuleUpdate(BaseModel):
     """Schema for updating a verification module"""
@@ -165,6 +166,7 @@ class VerificationModuleResponse(BaseModel):
     answer_options: Optional[List[str]] = None
     module_context: Optional[str] = None
     sample_size: int
+    ai_provider: str = "ollama-8b"
     status: str
     ai_round: int
     created_at: datetime
