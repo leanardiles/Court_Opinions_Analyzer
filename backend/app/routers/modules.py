@@ -5,7 +5,7 @@ Verification module management routes - scholars create and manage research ques
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import Optional, List
 from datetime import datetime
 from typing import Optional
 import random
@@ -27,6 +27,20 @@ class ReviewCorrectionRequest(BaseModel):
     scholar_notes: Optional[str] = None
 
 router = APIRouter(prefix="/modules", tags=["Verification Modules"])
+
+
+@router.get("/ai-providers")
+def get_ai_providers():
+    """Get list of available AI providers"""
+    from app.utils.ai_service import AIService
+    
+    return {
+        "providers": [
+            {"value": key, "label": label}
+            for key, label in AIService.PROVIDERS.items()
+        ],
+        "default": "ollama-8b"
+    }
 
 
 @router.post("/projects/{project_id}/modules", response_model=VerificationModuleResponse, status_code=status.HTTP_201_CREATED)
@@ -55,6 +69,15 @@ def create_module(
     elif current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="Only scholars or admins can create modules")
     
+    # Validate AI provider 
+    from app.utils.ai_service import AIService
+    
+    if module_data.ai_provider not in AIService.PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid AI provider. Must be one of: {list(AIService.PROVIDERS.keys())}"
+        )
+    
     # Validate answer_options for multiple_choice
     if module_data.answer_type == "multiple_choice":
         if not module_data.answer_options or len(module_data.answer_options) < 2:
@@ -80,6 +103,7 @@ def create_module(
         answer_options=module_data.answer_options,
         module_context=module_data.module_context,
         sample_size=module_data.sample_size,
+        ai_provider=module_data.ai_provider,
         status="draft"
     )
     

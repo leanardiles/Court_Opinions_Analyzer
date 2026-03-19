@@ -297,6 +297,9 @@ class VerificationModule(Base):
     # Sampling configuration
     sample_size = Column(Integer)  # How many cases to analyze (e.g., 20, 30)
     
+    ai_provider = Column(String, default="ollama-8b")  # "dummy", "ollama-8b", "ollama-70b"
+
+
     # Status tracking
     status = Column(String, default="draft")  
     # "draft" → "sampling_complete" → "ai_analyzing" → "ready_for_validation" → 
