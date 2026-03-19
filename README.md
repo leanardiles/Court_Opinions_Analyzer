@@ -1,6 +1,6 @@
 # Court Opinions Analyzer
 
-ML-powered web application for analyzing US court decisions with human-in-the-loop verification.
+AI-powered web application for analyzing court opinions with in-context learning and human-in-the-loop verification.
 
 **Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)
 **Team Members:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba 
@@ -12,7 +12,7 @@ ML-powered web application for analyzing US court decisions with human-in-the-lo
 
 A web-based platform that enables legal scholars to analyze court opinions with AI assistance and human verification. The system implements a three-tier workflow:
 
-1. **AI Analysis** → Automated analysis of court opinions
+1. **AI Analysis** → Automated analysis of court opinions using Llama 3.1 (Ollama) or mock AI
 2. **TA Verification** → Human validators verify AI findings
 3. **Scholar Review** → Legal scholars review verified results
 
@@ -30,6 +30,8 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Cardozo Law Branded UI** (professional design system)  
 ✅ **Module-Based Verification** with configurable research questions  
 ✅ **Two-Level Context System** (project-wide + module-specific)  
+✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, Llama 3.1 70B)  
+✅ **Real AI Integration** with Ollama/Llama 3.1  
 ✅ **Mock AI Analysis** for testing validator workflow  
 ✅ **Validator Dashboard** showing assigned modules with progress  
 ✅ **Case-by-Case Validation Interface** with AI review and corrections  
@@ -37,7 +39,6 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Scholar Review Interface** with approve/reject workflow  
 ✅ **Trust Validator Bulk Approve** feature  
 ✅ **Feedback Library** for AI improvement (Round 2)  
-🚧 **Real AI Integration** (Claude API - Coming next)  
 🚧 **Multi-Round Feedback Loop** (Coming soon)
 
 ---
@@ -50,12 +51,18 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - **ORM:** SQLAlchemy
 - **Authentication:** JWT (python-jose) + bcrypt
 - **Data Processing:** Pandas, PyArrow (Parquet support)
+- **AI Integration:** Ollama (Llama 3.1 8B/70B), requests
 
 ### Frontend
 - **Framework:** React 18
 - **Build Tool:** Vite
 - **Styling:** Tailwind CSS
 - **State Management:** React Hooks
+
+### AI Models
+- **Local Inference:** Ollama (Meta Llama 3.1)
+- **Models:** Llama 3.1 8B (laptop), Llama 3.1 70B (GPU)
+- **Mock AI:** Built-in dummy responses for testing
 
 ---
 
@@ -66,6 +73,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - Python 3.10 or higher
 - Node.js 18+ and npm
 - Git
+- **Ollama** (for real AI analysis) - [Download here](https://ollama.com/download)
 
 ### Installation
 
@@ -93,9 +101,27 @@ pip install -r requirements.txt
 
 # Create database tables
 python init_db.py
+
+# Create test users
+python create_test_users.py
 ```
 
-**3. Frontend Setup**
+**3. Ollama Setup (for Real AI Analysis)**
+```bash
+# Install Ollama from https://ollama.com/download
+
+# Download Llama 3.1 8B model (~4.7 GB)
+ollama pull llama3.1:8b
+
+# Optional: Download Llama 3.1 70B (~40 GB, requires GPU)
+ollama pull llama3.1:70b
+
+# Verify Ollama is running
+curl http://localhost:11434
+# Should return: "Ollama is running"
+```
+
+**4. Frontend Setup**
 ```bash
 cd frontend
 
@@ -105,7 +131,17 @@ npm install
 
 ### Running the Application
 
-**Start Backend** (Terminal 1)
+**Start Ollama** (Terminal 1)
+```bash
+# Ollama usually auto-starts on Windows/Mac
+# Check if running:
+curl http://localhost:11434
+
+# If not running, start manually:
+ollama serve
+```
+
+**Start Backend** (Terminal 2)
 ```bash
 cd backend
 source venv/Scripts/activate  # Windows Git Bash
@@ -114,7 +150,7 @@ uvicorn app.main:app --reload
 Backend runs on: http://localhost:8000  
 API Documentation: http://localhost:8000/docs
 
-**Start Frontend** (Terminal 2)
+**Start Frontend** (Terminal 3)
 ```bash
 cd frontend
 npm run dev
@@ -125,13 +161,19 @@ Frontend runs on: http://localhost:5173
 
 ## 📊 Database Schema
 
-Current schema includes 5 main tables:
+Current schema includes 13 tables:
 
 - **users** - User accounts with role-based access (admin/scholar/validator)
 - **projects** - Research projects containing court case collections
-- **court_cases** - Individual court opinions with metadata and AI analysis
-- **assignments** - Links validators to cases for verification
-- **verifications** - Stores validator answers and AI accuracy metrics
+- **court_cases** - Individual court opinions with metadata
+- **verification_modules** - Research questions for AI analysis
+- **module_case_samples** - Random case samples per module
+- **validator_assignments** - Links validators to cases for verification
+- **ai_analyses** - AI-generated answers with reasoning and confidence
+- **validation_feedback** - Validator corrections and scholar review
+- **feedback_library** - Approved corrections for Round 2 training
+- **project_contexts** - Project-wide guidance for AI
+- And 3 more supporting tables
 
 See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 
@@ -147,24 +189,10 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 | POST | `/auth/login` | Get JWT token | Public |
 | GET | `/auth/me` | Get current user | Authenticated |
 
-### Testing Authentication (Swagger UI)
-
-1. Navigate to http://localhost:8000/docs
-2. Register a user via `POST /auth/register`:
-   ```json
-   {
-     "email": "admin@example.com",
-     "password": "yourpassword",
-     "role": "admin"
-   }
-   ```
-3. Login via `POST /auth/login` to get JWT token
-4. Use token for authenticated endpoints
-
 ### User Roles
 
 - **Admin:** Create projects, upload data, assign scholars, manage system
-- **Scholar:** Manage assigned projects, assign validators, review results
+- **Scholar:** Manage assigned projects, create modules, assign validators, review results
 - **Validator:** Verify AI-generated analyses for assigned cases
 
 ### Test Accounts
@@ -178,26 +206,41 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 
 ---
 
-## 📁 Project Structure
+## 🤖 AI Provider Options
 
+When creating a module, scholars can choose from:
+
+1. **🎭 Dummy AI** - Instant mock responses for testing validator workflow
+2. **🦙 Llama 3.1 8B** - Real AI analysis (local, free, runs on laptop)
+3. **🦙 Llama 3.1 70B** - Advanced model (requires GPU, placeholder for now)
+
+**AI Provider is locked after module creation** to ensure data integrity across all cases in a module.
+
+---
+
+## 📁 Project Structure
 ```
 Court_Opinions_Analyzer/
 ├── backend/
 │   ├── app/
-│   │   ├── core/           # Configuration
 │   │   ├── routers/        # API endpoints
 │   │   ├── utils/          # Helper functions
+│   │   │   └── ai_service.py   # AI integration layer
 │   │   ├── database.py     # Database connection
 │   │   ├── models.py       # SQLAlchemy models
 │   │   ├── schemas.py      # Pydantic schemas
 │   │   └── main.py         # FastAPI app
-│   ├── docs/               # Documentation
+│   ├── uploads/            # Uploaded Parquet files
 │   ├── venv/               # Virtual environment (not in git)
 │   ├── database.db         # SQLite database
 │   ├── init_db.py          # Database setup script
+│   ├── create_test_users.py  # Test user creation
 │   └── requirements.txt    # Python dependencies
 ├── frontend/
 │   ├── src/
+│   │   ├── pages/          # React pages
+│   │   ├── components/     # Reusable components
+│   │   ├── api/            # API client
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
@@ -221,12 +264,29 @@ Court_Opinions_Analyzer/
 uvicorn app.main:app --reload
 
 # Reset database
-python init_db.py --drop
 python init_db.py
+
+# Recreate test users
+python create_test_users.py
 
 # Add new dependency
 pip install package-name
 pip freeze > requirements.txt
+```
+
+**Ollama:**
+```bash
+# Check status
+curl http://localhost:11434
+
+# List downloaded models
+ollama list
+
+# Test model
+ollama run llama3.1:8b "Hello!"
+
+# Remove model
+ollama rm llama3.1:70b
 ```
 
 **Frontend:**
@@ -256,128 +316,66 @@ git push
 
 ## 📈 Development Progress
 
-**✅ Completed (Session 1 - Feb 25, 2026)**
-- [x] Project setup and repository initialization
-- [x] Complete database schema (5 tables)
-- [x] JWT authentication system
-- [x] User registration and login
-- [x] Role-based access control
-- [x] API documentation (Swagger UI)
+**✅ Completed (Sessions 1-4)**
+- [x] Complete authentication system with JWT
+- [x] Database schema (13 tables)
+- [x] Project management with Parquet upload
+- [x] Role-based dashboards
+- [x] Project lifecycle workflow
+- [x] Scholar assignment
 
-**✅ Completed (Session 2 - Feb 26, 2026)**
-- [x] Admin: Project management (CRUD operations)
-- [x] Admin: Parquet file upload system
-- [x] Admin: Case listing endpoint
-- [x] Complete frontend UI with Cardozo design system
-- [x] Dashboard with project management
-- [x] Upload page for Parquet files
-- [x] Case viewer with dynamic column selector
-- [x] Reusable Header component with dual navigation
+**✅ Completed (Days 1-3)**
+- [x] Module creation with 5 answer types
+- [x] Two-level context system (project + module)
+- [x] Case sampling and validator assignment
 
-**✅ Completed (Session 3 - Feb 27, 2026)**
-- [x] End-to-end testing and bug fixes
-- [x] Delete project functionality with cascade
-- [x] Clickable project cards navigation
-- [x] ProjectDetailPage with cases view
-- [x] Remove Parquet file functionality
-- [x] Scholar assignment to projects
-- [x] UI/UX improvements (login, modal, dashboard)
-- [x] Created scholar1 and ta2 test users
-- [x] Scholar visibility in dashboard and project details
+**✅ Completed (Days 4-5)**
+- [x] Mock AI analysis generation
+- [x] Realistic dummy responses by answer type
+- [x] Module status tracking
 
-**✅ Completed (Session 4 - Mar 1, 2026 - Part 1)**
-- [x] Project lifecycle workflow (draft/ready/active)
-- [x] Status auto-update logic (draft→ready when parquet+scholar assigned)
-- [x] Send to Scholar endpoint and UI (admin)
-- [x] Removed Launch Project (workflow now module-based)
-- [x] Enhanced dashboard with project ID, status badges
-- [x] Display parquet filename in project detail view
-- [x] Scholar email enrichment in project responses
-- [x] AI model selection dropdown (GPT-5.2, Sonnet 4.5, Gemini 3.1)
-- [x] API usage tracking module (tokens, cost, budget)
-- [x] Role-based dashboard views (admin/scholar/validator)
+**✅ Completed (Days 6-7)**
+- [x] Validator dashboard with progress tracking
+- [x] Case-by-case validation interface
+- [x] AI review with correct/incorrect decisions
+- [x] Validation completion summary
+- [x] UI polish and Cardozo branding
 
-**✅ Completed (Day 1-2 - Mar 1-2, 2026)**
-- [x] Database schema for verification modules (8 new tables)
-- [x] Module creation API (5 endpoints)
-- [x] Scholar UI: Module creation form with 5 answer types
-- [x] Module display with status badges
-- [x] Module-specific context (markdown support)
+**✅ Completed (Day 8)**
+- [x] Scholar review interface
+- [x] Approve/reject corrections workflow
+- [x] Trust Validator bulk approve
+- [x] Feedback library integration
+- [x] Dynamic button states
 
-**✅ Completed (Day 3 - Mar 2, 2026)**
-- [x] Project context endpoints (create/update/get)
-- [x] Project context editor modal with markdown support
-- [x] Two-level context system (project-wide + module-specific)
-- [x] Version tracking for AI reproducibility
+**✅ Completed (Day 8.5 - Mar 19, 2026)**
+- [x] Ollama/Llama 3.1 integration
+- [x] AI provider selection dropdown (3 options)
+- [x] AIService abstraction layer with multiple providers
+- [x] Real AI analysis with Llama 3.1 8B
+- [x] AI provider locked after module creation
+- [x] In-context learning foundation (feedback examples in prompts)
 
-**✅ Completed (Day 4 - Mar 2, 2026)**
-- [x] Random case sampling per module (SQL random selection)
-- [x] Validator assignment per module
-- [x] Module status tracking (draft → sampling_complete → ready_for_validation)
-- [x] Sample Cases and Assign Validator buttons
-- [x] Validator selection modal
-- [x] Module cards show sample count and validator
+**🚧 Next Steps (Days 9-10)**
+- [ ] **Day 9:** Progressive in-context learning (4 validation rounds)
+- [ ] **Day 10:** Multi-round feedback loop with accuracy improvement metrics
+- [ ] Demo preparation and final testing
 
-**✅ Completed (Day 5 - Mar 2, 2026)**
-- [x] Mock AI analysis generation endpoint
-- [x] Realistic dummy answers by answer type (yes/no, multiple choice, integer, text, date)
-- [x] Random confidence scores (65-95%) and plausible reasoning
-- [x] Launch AI Analysis button with loading states
-- [x] Module status auto-updates (ready_for_validation → ai_analyzing → validation_in_progress)
-- [x] Token/cost tracking in mock responses
-
-**✅ Completed (Day 6 - Mar 3, 2026)**
-- [x] Validator dashboard showing assigned modules across all projects
-- [x] Module assignment cards with progress tracking (X/Y cases completed)
-- [x] Validation interface for case-by-case AI review
-- [x] AI analysis display with answer, reasoning, and confidence
-- [x] Correct/Incorrect decision buttons
-- [x] Correction form with reasoning (shown when marking incorrect)
-- [x] Context modal displaying project and module guidance
-- [x] Navigation between cases (Previous/Next buttons)
-- [x] Progress tracking with visual progress bar
-- [x] Validation submission endpoint with ValidationFeedback model
-- [x] Role-based routing (validators → ValidatorDashboard)
-- [x] Project access permissions for validators via assignments
-
-**✅ Completed (Day 7 - Mar 3-5, 2026)**
-- [x] Validation completion summary with statistics
-- [x] Dropdown filters on validator dashboard (Status, Marked)
-- [x] UI polish: button reorganization, AI Answer/Confidence side-by-side
-- [x] Standardized section headers throughout validation interface
-- [x] Responsive case information grid
-- [x] View Context button moved to Research Question section
-- [x] Cardozo logo added to header
-
-**✅ Completed (Day 8 - Mar 5, 2026)**
-- [x] Module review summary with AI accuracy metrics
-- [x] Validator track record display (past validations, approval rate)
-- [x] Corrections review interface (case-by-case approve/reject)
-- [x] Side-by-side AI vs validator comparison
-- [x] Trust Validator bulk approve with confirmation dialog
-- [x] Feedback library integration (approved corrections)
-- [x] Dynamic button states based on review progress
-- [x] Filter reviewed corrections from pending list
-- [x] Module assignments include correction counts
-
-**✅ UI Improvements (Mar 2-5, 2026)**
-- [x] Dashboard titles: Admin/Scholar/Validator Dashboard
-- [x] Removed project launch button (module-based workflow)
-- [x] Parquet viewer moved to on-demand modal
-- [x] View Source File button for cleaner project pages
-- [x] Full-screen modal with column selector and cases table
-- [x] Removed project-level validator assignment display
-- [x] Improved spacing in project detail header
-
-**🚧 Next Steps (Day 9-10)**
-- [ ] **Day 9:** Real AI integration (Claude API)
-- [ ] **Day 10:** Round 2 & feedback loop with accuracy improvement metrics
-
-**Progress: 8/10 days complete (80%)** 🎯
+**Progress: 8.5/10 days complete (85%)** 🎯
 
 ---
 
 ## 🚀 Future Enhancement Ideas
+
+### Module Management
+- **Clone Module** - Duplicate a module with option to change AI provider
+  - Use case: Test same research question with different AI models
+  - Creates new module preserving all settings (question, answer type, sample size)
+  - Allows selecting different AI provider for comparison
+  - Enables A/B testing: Dummy AI vs. Llama 8B vs. Llama 70B
+  - Supports research: "How does accuracy differ between models?"
+- **Module templates** - Save frequently-used module configurations
+- **Batch module creation** - Create multiple similar modules at once
 
 ### Multi-Validator Support
 - **Multiple validators per module** - Assign 2+ validators to review the same cases independently
@@ -395,22 +393,49 @@ git push
 - **Annotation tools** - Highlight and annotate relevant passages in opinions
 
 ### Advanced AI Features
-- **Multiple AI model comparison** - Run same cases through GPT, Claude, and Gemini simultaneously
+- **Multiple AI model comparison** - Run same cases through different models simultaneously
+- **API-based models** - Add Claude (Anthropic) and GPT-4 (OpenAI) as provider options
+- **Fine-tuned models** - Train custom Llama on approved corrections (after 200+ examples)
 - **Confidence calibration** - Track when AI is overconfident vs. underconfident
 - **Active learning** - Prioritize uncertain cases for human review
 - **Error pattern detection** - Identify systematic biases in AI responses
-- **Custom fine-tuning** - Train model on domain-specific legal language
 
 ### Workflow Enhancements
 - **Batch operations** - Upload multiple Parquet files, assign validators in bulk
 - **Email notifications** - Alert validators when new assignments arrive
 - **Progress dashboards** - Real-time analytics on project completion rates
-- **Export functionality** - Download validated results as CSV/Excel for analysis
+- **Export functionality** - Download validated results as CSV/Excel/JSONL for analysis
 - **Audit trail** - Complete history of who changed what and when
+- **Project cloning** - Duplicate entire projects with all modules and settings
 
 ### Research Features
 - **Inter-coder reliability reports** - Statistical analysis of validator agreement
 - **Confusion matrices** - Visualize AI error patterns by category
 - **Longitudinal tracking** - Compare AI performance across multiple rounds
+- **Model comparison reports** - Side-by-side accuracy for different AI providers
 - **Custom metrics** - Define project-specific accuracy measures
 - **Publication-ready exports** - Generate tables and figures for academic papers
+- **Training data export** - Export approved corrections as JSONL for fine-tuning
+
+---
+
+## 📚 Documentation
+
+- **API Documentation:** http://localhost:8000/docs (auto-generated Swagger UI)
+- **Database Schema:** `backend/docs/DATABASE_SCHEMA.txt`
+- **Development Log:** `PROJECT_PROGRESS.txt`
+
+---
+
+## 🤝 Contributing
+
+This is a capstone project for academic purposes. For questions or collaboration:
+- **Leandro Ardiles** - [GitHub](https://github.com/leanardiles)
+- **Course:** MS in Applied Data Science, Katz School
+- **Partner:** Cardozo School of Law
+
+---
+
+## 📄 License
+
+This project is developed as part of academic coursework at Yeshiva University.
