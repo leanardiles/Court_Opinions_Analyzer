@@ -90,6 +90,37 @@ useEffect(() => {
     }
   };
 
+  const handleCloneModule = async (sourceModule) => {
+    try {
+      // Create the cloned module on the backend
+      const cloned = await modulesAPI.clone(sourceModule.id);
+
+      // Reload modules so the new one appears
+      await loadModules();
+
+      // Pre-populate the modal with source module data, name left blank
+      setModuleFormData({
+        module_name: '',                                         // blank — user must fill
+        question_text: sourceModule.question_text || '',
+        answer_type: sourceModule.answer_type || 'multiple_choice',
+        answer_options: sourceModule.answer_options?.length
+          ? sourceModule.answer_options
+          : ['', ''],
+        module_context: sourceModule.module_context || '',
+        sample_size: sourceModule.sample_size || 20,
+        ai_provider: sourceModule.ai_provider || 'groq-llama-70b',
+      });
+
+      // Open the edit modal pointing at the newly cloned module
+      setShowModuleModal(true);
+
+      // Small UX hint
+      alert(`Module cloned! Please enter a name for the new module (Module #${cloned.module_number}).`);
+    } catch (err) {
+      alert('Failed to clone module: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
   const loadModuleAssignments = async (moduleList) => {
     const assignmentsData = {};
     for (const module of moduleList) {
@@ -884,6 +915,12 @@ useEffect(() => {
                                 )}
                               </>
                             )}
+                            <button
+                              onClick={() => handleCloneModule(module)}
+                              className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold text-xs"
+                            >
+                              Clone
+                            </button>
                           </div>
                         </div>
                       </div>

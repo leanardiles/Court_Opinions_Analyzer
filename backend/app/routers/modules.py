@@ -210,6 +210,69 @@ def update_module(
     
     return module
 
+@router.post("/modules/{module_id}/clone", response_model=VerificationModuleResponse, status_code=status.HTTP_201_CREATED)
+def clone_module(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Clone an existing module into a new draft module.
+    Copies: question_text, answer_type, answer_options, module_context,
+            sample_size, ai_provider, and validator assignment (if any).
+    Leaves module_name blank for the scholar to fill in.
+    """
+    # Get source module
+    source = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Permission check
+    project = db.query(Project).filter(Project.id == source.project_id).first()
+    if current_user.role.value == "scholar":
+        if project.scholar_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Only the assigned scholar can clone modules")
+    elif current_user.role.value != "admin":
+        raise HTTPException(status_code=403, detail="Only scholars or admins can clone modules")
+
+    # Get next module number
+    max_module = db.query(VerificationModule).filter(
+        VerificationModule.project_id == source.project_id
+    ).order_by(VerificationModule.module_number.desc()).first()
+    next_module_number = (max_module.module_number + 1) if max_module else 1
+
+    # Create cloned module (name left blank)
+    cloned = VerificationModule(
+        project_id=source.project_id,
+        module_number=next_module_number,
+        module_name="",                          # blank — scholar must fill in
+        question_text=source.question_text,
+        answer_type=source.answer_type,
+        answer_options=source.answer_options,
+        module_context=source.module_context,
+        sample_size=source.sample_size,
+        ai_provider=source.ai_provider,
+        status="draft"
+    )
+    db.add(cloned)
+    db.flush()  # get cloned.id before commit
+
+    # Copy validator assignment if one exists
+    existing_assignment = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id
+    ).first()
+    if existing_assignment:
+        new_assignment = ValidatorAssignment(
+            module_id=cloned.id,
+            validator_id=existing_assignment.validator_id,
+            case_id=existing_assignment.case_id  # will be None/0 at draft stage
+        )
+        db.add(new_assignment)
+
+    db.commit()
+    db.refresh(cloned)
+    return cloned
+
 
 @router.delete("/modules/{module_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_module(

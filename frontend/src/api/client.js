@@ -235,6 +235,12 @@ export const modulesAPI = {
     return response.data;
   },
 
+  // Clone an existing module into a new draft
+  clone: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/clone`);
+    return response.data;
+  },
+
   // Scholar Review endpoints
   getValidationSummary: async (moduleId) => {
     const response = await apiClient.get(`/modules/modules/${moduleId}/validation-summary`);
