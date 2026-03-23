@@ -125,6 +125,65 @@ useEffect(() => {
     }
   };
 
+  const handleDeleteModule = async (moduleId, moduleName, moduleStatus) => {
+    // Tier 1: draft or sampling_complete — simple confirmation
+    if (['draft', 'sampling_complete'].includes(moduleStatus)) {
+      if (!window.confirm(
+        `Are you sure you want to delete "${moduleName}"?\n\n` +
+        `This will permanently delete the module and all its data.\n\n` +
+        `This action CANNOT be undone.`
+      )) {
+        return;
+      }
+
+    // Tier 2: validation in progress — strong warning
+    } else if (moduleStatus === 'validation_in_progress') {
+      const firstConfirm = window.confirm(
+        `⚠️ WARNING: Validation is currently in progress for "${moduleName}".\n\n` +
+        `Deleting this module will permanently destroy:\n` +
+        `- All sampled cases\n` +
+        `- All AI analyses\n` +
+        `- All validator assignments\n` +
+        `- Any validations already submitted by the validator\n\n` +
+        `The validator will lose all their work without warning.\n\n` +
+        `Are you sure you want to continue?`
+      );
+      if (!firstConfirm) return;
+
+      const secondConfirm = window.confirm(
+        `🛑 FINAL WARNING\n\n` +
+        `You are about to delete "${moduleName}" while a validator is actively working on it.\n\n` +
+        `This CANNOT be undone. Are you absolutely sure?`
+      );
+      if (!secondConfirm) return;
+
+    // Tier 3: validation_complete or approved — block deletion
+    } else if (['validation_complete', 'approved'].includes(moduleStatus)) {
+      window.alert(
+        `🔒 Cannot delete "${moduleName}".\n\n` +
+        `This module has completed validation and its data has research value.\n\n` +
+        `If you really need to delete it, please contact your administrator.`
+      );
+      return;
+
+    // Fallback for any other status — simple confirmation
+    } else {
+      if (!window.confirm(
+        `Are you sure you want to delete "${moduleName}"?\n\n` +
+        `This action CANNOT be undone.`
+      )) {
+        return;
+      }
+    }
+
+    try {
+      await modulesAPI.delete(moduleId);
+      await loadModules();
+    } catch (err) {
+      alert('Failed to delete module: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
   const loadModuleAssignments = async (moduleList) => {
     const assignmentsData = {};
     for (const module of moduleList) {
@@ -823,7 +882,7 @@ useEffect(() => {
                 onClick={() => setShowModuleModal(true)}
                 className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
               >
-                + Add Module
+                + Add New Module
               </button>
             </div>
 
@@ -981,6 +1040,13 @@ useEffect(() => {
                               className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold text-xs"
                             >
                               Clone
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteModule(module.id, module.module_name, module.status)}
+                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
+                            >
+                              🗑️ Delete
                             </button>
                           </div>
                         </div>
