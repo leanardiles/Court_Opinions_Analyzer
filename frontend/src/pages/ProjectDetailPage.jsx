@@ -1015,26 +1015,35 @@ useEffect(() => {
                               </button>
                             )}
                             
-                            {/* Step 3: Review Corrections (shows after module launched) */}
+                            {/* Step 3: Validation progress (shows after module launched) */}
                             {module.status === 'validation_in_progress' && assignment.sampled && (
                               <>
-                                {assignment.corrections_pending > 0 ? (
-                                  <button 
+                                {/* Validator hasn't finished yet — no action for scholar */}
+                                {!assignment.validator_finished && (
+                                  <span className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-sm font-medium">
+                                    ⏳ Waiting for validator ({assignment.completed_cases}/{assignment.sample_count} cases)
+                                  </span>
+                                )}
+
+                                {/* Validator finished, corrections pending — scholar needs to act */}
+                                {assignment.validator_finished && assignment.corrections_pending > 0 && (
+                                  <button
                                     onClick={() => navigate(`/module-review/${module.id}`)}
                                     className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition"
                                   >
                                     📊 Review Corrections ({assignment.corrections_pending})
                                   </button>
-                                ) : (
-                                  <button 
-                                    onClick={() => navigate(`/module-review/${module.id}`)}
-                                    className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition"
-                                  >
-                                    ✓ Corrections Reviewed
-                                  </button>
+                                )}
+
+                                {/* Validator finished, no corrections — AI was perfect */}
+                                {assignment.validator_finished && assignment.corrections_pending === 0 && (
+                                  <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded text-sm font-medium">
+                                    ✓ AI was 100% accurate
+                                  </span>
                                 )}
                               </>
                             )}
+
                             <button
                               onClick={() => handleCloneModule(module)}
                               className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold text-xs"

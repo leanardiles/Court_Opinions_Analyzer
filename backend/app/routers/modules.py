@@ -451,7 +451,7 @@ def get_module_assignments(
         ModuleCaseSample.module_id == module_id
     ).count()
     
-    # Get validator assignment
+    # Get validator assignment (just the first one for module-level info)
     assignment = db.query(ValidatorAssignment).filter(
         ValidatorAssignment.module_id == module_id
     ).first()
@@ -465,12 +465,34 @@ def get_module_assignments(
                 "email": validator.email,
                 "full_name": validator.full_name
             }
-    
+
+    # Count how many cases the validator has completed
+    completed_cases = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.status == "completed"
+    ).count()
+
+    # Count pending corrections (incorrect validations not yet reviewed by scholar)
+    corrections_pending = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidationFeedback.is_correct == False,
+        ValidationFeedback.scholar_reviewed == False
+    ).count()
+
+    # Validator has finished when all sampled cases are completed
+    validator_finished = sample_count > 0 and completed_cases >= sample_count
+
     return {
         "module_id": module_id,
         "sample_count": sample_count,
         "sampled": sample_count > 0,
-        "validator": validator_info
+        "validator": validator_info,
+        "completed_cases": completed_cases,
+        "corrections_pending": corrections_pending,
+        "validator_finished": validator_finished,
     }
 
 @router.post("/modules/{module_id}/launch-mock-ai")
