@@ -3,10 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { authAPI, projectsAPI, casesAPI, uploadAPI, modulesAPI } from '../api/client';
 import Header from '../components/Header';
 
-export default function ProjectDetailPage() {
+export default function ProjectDetailPage({ user: propUser, onLogout }) {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(propUser || null);
   const [project, setProject] = useState(null);
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -595,7 +595,8 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user} onLogout={() => navigate('/')} />
+      <Header user={user} onLogout={onLogout} />
+  
 
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <button

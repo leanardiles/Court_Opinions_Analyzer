@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { projectsAPI, uploadAPI } from '../api/client';
 import Header from '../components/Header';
 
-export default function UploadPage() {
+export default function UploadPage({ user, onLogout }) {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
@@ -62,7 +62,8 @@ export default function UploadPage() {
 
 return (
   <div className="min-h-screen bg-gray-50">
-    <Header user={null} onLogout={null} />
+    <Header user={user} onLogout={onLogout} />
+
 
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">

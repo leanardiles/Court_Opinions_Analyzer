@@ -94,14 +94,14 @@ function App() {
             <Route path="/validation-complete/:moduleId" element={<ValidationCompletionPage user={user} onLogout={handleLogout} />} />
 
             {/* Project Detail */}
-            <Route path="/project/:projectId" element={<ProjectDetailPage />} />
-            
+            <Route path="/project/:projectId" element={<ProjectDetailPage user={user} onLogout={handleLogout} />} />
+
             {/* Upload */}
-            <Route path="/upload/:projectId" element={<UploadPage />} />
-            
+            <Route path="/upload/:projectId" element={<UploadPage user={user} onLogout={handleLogout} />} />
+
             {/* View Cases */}
-            <Route path="/view-cases/:projectId" element={<ViewCasesPage />} />
-            
+            <Route path="/view-cases/:projectId" element={<ViewCasesPage user={user} onLogout={handleLogout} />} />
+
             {/* Catch all - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" />} />
 
