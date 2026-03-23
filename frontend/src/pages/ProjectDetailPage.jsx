@@ -892,12 +892,22 @@ useEffect(() => {
                 <p className="text-sm text-gray-500">Create your first research question to get started</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {modules.map((module) => {
+              <div className="space-y-4">       
+                {modules.map((module, index) => {
                   const assignment = moduleAssignments[module.id] || {};
                   
+                  const colors = [
+                    { bg: 'bg-blue-50', border: 'border-cardozo-blue' },
+                    { bg: 'bg-amber-50', border: 'border-cardozo-gold' },
+                    { bg: 'bg-green-50', border: 'border-green-600' },
+                    { bg: 'bg-purple-50', border: 'border-purple-600' },
+                    { bg: 'bg-pink-50', border: 'border-pink-600' },
+                  ];
+                  const colorScheme = colors[index % colors.length];
+
                   return (
-                    <div key={module.id} className="card hover:shadow-lg transition">
+                    <div key={module.id} className={`card hover:shadow-lg transition border-t-4 ${colorScheme.bg} ${colorScheme.border}`}>
+
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
