@@ -65,7 +65,7 @@ export default function Dashboard() {
     
     try {
       await projectsAPI.delete(projectId);
-      alert('Project deleted successfully!');
+      //alert('Project deleted successfully!');
       loadData();
     } catch (err) {
       alert('Failed to delete project: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -137,8 +137,7 @@ export default function Dashboard() {
               return (
                 <div 
                   key={project.id} 
-                  className={`card hover:shadow-lg transition overflow-hidden p-0 ${colorScheme.bg} border-t-4 ${colorScheme.border} relative`}
-                >
+                  className={`card hover:shadow-lg transition overflow-hidden p-0 ${colorScheme.bg} border-t-4 ${colorScheme.border}`}                >
                   {/* Clickable area - entire card except delete button */}
                   <div 
                     onClick={() => navigate(`/project/${project.id}`)}
@@ -238,19 +237,6 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Delete button - positioned absolutely */}
-                  {user?.role === 'admin' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(project.id, project.name);
-                      }}
-                      className="absolute top-4 right-4 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
-                    >
-                      Delete
-                    </button>
-                  )}
                 </div>
               );
             })
@@ -293,14 +279,14 @@ export default function Dashboard() {
               <div className="flex gap-4 pt-4">
                 <button 
                   type="submit" 
-                  className="flex-1 px-6 py-3 bg-cardozo-gold text-cardozo-dark rounded-lg font-semibold hover:bg-[#E5A619] transition shadow-sm"
+                  className="flex-1 px-6 py-3 bg-cardozo-blue text-white rounded-lg font-semibold hover:bg-[#005A94] transition shadow-sm"
                 >
                   Create Project
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition shadow-sm"
+                  className="flex-1 px-6 py-3 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition shadow-sm"
                 >
                   Cancel
                 </button>

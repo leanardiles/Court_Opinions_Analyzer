@@ -33,7 +33,7 @@ export default function ModuleReviewPage({ user, onLogout }) {
     setTrusting(true);
     try {
       await modulesAPI.trustValidator(moduleId);
-      alert('All corrections approved successfully!');
+      //alert('All corrections approved successfully!');
       navigate('/dashboard');
     } catch (err) {
       console.error('Failed to trust validator:', err);

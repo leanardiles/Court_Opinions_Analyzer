@@ -34,7 +34,8 @@ const [moduleFormData, setModuleFormData] = useState({
   answer_type: 'multiple_choice',
   answer_options: ['', ''],
   module_context: '',
-  sample_size: 20
+  sample_size: 20,
+  ai_provider: 'groq-llama-70b'
 });
 
   useEffect(() => {
@@ -252,7 +253,7 @@ useEffect(() => {
     setUploading(true);
     try {
       await uploadAPI.uploadParquet(projectId, file);
-      alert('File uploaded successfully!');
+      //alert('File uploaded successfully!');
       setShowUploadModal(false);
       setFile(null);
       loadData();
@@ -274,7 +275,7 @@ useEffect(() => {
 
     try {
       const result = await uploadAPI.removeParquet(projectId);
-      alert(result.message || 'Parquet file removed successfully!');
+      //alert(result.message || 'Parquet file removed successfully!');
       loadData();
     } catch (err) {
       alert('Failed to remove Parquet file: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -297,7 +298,7 @@ useEffect(() => {
   const handleAssignScholar = async (scholarId) => {
     try {
       const result = await projectsAPI.assignScholar(projectId, scholarId);
-      alert(result.message || 'Scholar assigned successfully!');
+      //alert(result.message || 'Scholar assigned successfully!');
       setShowScholarModal(false);
       loadData();
     } catch (err) {
@@ -315,7 +316,7 @@ useEffect(() => {
 
     try {
       await projectsAPI.assignScholar(projectId, -1);
-      alert('Scholar unassigned successfully!');
+      //alert('Scholar unassigned successfully!');
       loadData();
     } catch (err) {
       alert('Failed to unassign scholar: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -332,7 +333,7 @@ useEffect(() => {
 
     try {
       await projectsAPI.sendToScholar(projectId);
-      alert('Project sent to scholar successfully!');
+      //alert('Project sent to scholar successfully!');
       loadData();
     } catch (err) {
       alert('Failed to send project: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -343,7 +344,7 @@ useEffect(() => {
     try {
       await projectsAPI.updateAIProvider(projectId, newProvider);
       setSelectedAIProvider(newProvider);
-      alert('AI Provider updated successfully!');
+      //alert('AI Provider updated successfully!');
       loadData();
     } catch (err) {
       alert('Failed to update AI provider: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -373,7 +374,7 @@ useEffect(() => {
 
     try {
       await projectsAPI.delete(projectId);
-      alert('Project deleted successfully!');
+      //alert('Project deleted successfully!');
       navigate('/dashboard');
     } catch (err) {
       alert('Failed to delete project: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -406,7 +407,7 @@ useEffect(() => {
       };
       
       await modulesAPI.create(projectId, payload);
-      alert('Module created successfully!');
+      //alert('Module created successfully!');
       setShowModuleModal(false);
       
       setModuleFormData({
@@ -415,7 +416,8 @@ useEffect(() => {
         answer_type: 'multiple_choice',
         answer_options: ['', ''],
         module_context: '',
-        sample_size: 20
+        sample_size: 20,
+        ai_provider: selectedAIProvider  // ← uses current project's provider
       });
       
       loadModules();
@@ -431,7 +433,7 @@ useEffect(() => {
     
     try {
       const result = await modulesAPI.sampleCases(moduleId);
-      alert(result.message || 'Cases sampled successfully!');
+      //alert(result.message || 'Cases sampled successfully!');
       loadModules(); // Reload to show updated status
     } catch (err) {
       alert('Failed to sample cases: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -454,7 +456,7 @@ useEffect(() => {
     
     try {
       const result = await modulesAPI.assignValidator(selectedModuleForValidator.id, validatorId);
-      alert(result.message || 'Validator assigned successfully!');
+      //alert(result.message || 'Validator assigned successfully!');
       setShowValidatorModal(false);
       setSelectedModuleForValidator(null);
       loadModules(); // Reload to show assigned validator
@@ -483,7 +485,7 @@ useEffect(() => {
       const result = await projectsAPI.saveContext(projectId, contextText);
       setProjectContext(contextText);
       setShowContextEditor(false);
-      alert(result.message || 'Project context saved successfully!');
+      //alert(result.message || 'Project context saved successfully!');
     } catch (err) {
       alert('Failed to save context: ' + (err.response?.data?.detail || 'Unknown error'));
     } finally {
@@ -521,7 +523,7 @@ useEffect(() => {
     
     try {
       const result = await modulesAPI.launchModule(moduleId);
-      alert(result.message || 'Module launched successfully!');
+      //alert(result.message || 'Module launched successfully!');
       loadModules(); // Reload to show updated status
     } catch (err) {
       alert('Failed to launch module: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -851,19 +853,11 @@ useEffect(() => {
                 </button>
               </div>
             ) : (
-              <div className="card text-center py-12">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <p className="text-gray-600 mb-2">No project context added yet</p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Add overarching context to guide AI analysis across all modules
-                </p>
+              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <span className="text-sm text-gray-500 italic">No project context added yet</span>
                 <button
                   onClick={() => setShowContextEditor(true)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition text-sm"
+                  className="px-3 py-1.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition text-xs"
                 >
                   + Add Context
                 </button>
@@ -875,15 +869,15 @@ useEffect(() => {
         {/* Modules Section - Scholar only */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
+            <div className="mb-4">
+              <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-3">
                 Research Questions (Modules)
               </h2>
               <button
                 onClick={() => setShowModuleModal(true)}
                 className="px-4 py-2 bg-cardozo-blue text-white rounded-lg font-medium hover:bg-[#005A94] transition shadow text-sm"
               >
-                + Add New Module
+                + Add Module
               </button>
             </div>
 
@@ -907,10 +901,19 @@ useEffect(() => {
                   const colorScheme = colors[index % colors.length];
 
                   return (
-                    <div key={module.id} className={`card hover:shadow-lg transition border-t-4 ${colorScheme.bg} ${colorScheme.border}`}>
-
+      
+                    <div key={module.id} className={`card hover:shadow-lg transition border-t-4 ${colorScheme.bg} ${colorScheme.border} relative p-4`}>
+                      <div className="absolute top-4 right-4">
+                        <button
+                          onClick={() => handleDeleteModule(module.id, module.module_name, module.status)}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
                       <div className="flex justify-between items-start">
-                        <div className="flex-1">
+                        <div className="flex-1 pr-32">
+
                           <div className="flex items-center gap-3 mb-2">
                             <span className="px-2 py-1 bg-cardozo-blue text-white rounded text-xs font-semibold">
                               Module {module.module_number}
@@ -928,17 +931,11 @@ useEffect(() => {
                             </span>
                           </div>
                           
-                          <p className="text-gray-700 mb-3">{module.question_text}</p>
+                          <p className="text-gray-900 font-semibold mb-3">{module.question_text}</p>
 
                           {/* Module Context Preview */}
                           {module.module_context ? (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
-                              <div className="text-xs font-semibold text-gray-500 mb-1">
-                                📋 Module Context:
-                              </div>
-                              <div className="text-sm text-gray-700 line-clamp-3 whitespace-pre-wrap mb-2">
-                                {module.module_context}
-                              </div>
+                            <div className="mb-3">
                               <button
                                 onClick={() => {
                                   setSelectedModuleForContext(module);
@@ -948,11 +945,12 @@ useEffect(() => {
                                 className="text-xs text-purple-600 hover:text-purple-800 font-medium"
                               >
                                 {['draft', 'sampling_complete'].includes(module.status)
-                                  ? '✏️ View / Edit Context'
-                                  : '📄 View Context'}
+                                  ? '✏️ View / Edit Module Context'
+                                  : '📄 View Module Context'}
                               </button>
                             </div>
                           ) : (
+
                             ['draft', 'sampling_complete'].includes(module.status) && (
                               <button
                                 onClick={() => {
@@ -1062,12 +1060,6 @@ useEffect(() => {
                               Clone
                             </button>
 
-                            <button
-                              onClick={() => handleDeleteModule(module.id, module.module_name, module.status)}
-                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold text-xs"
-                            >
-                              🗑️ Delete
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -1095,15 +1087,16 @@ useEffect(() => {
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-cardozo-blue file:text-white
-                  hover:file:bg-[#005A94]
-                  file:cursor-pointer cursor-pointer"
+                  file:bg-blue-100 file:text-cardozo-blue
+                  hover:file:bg-blue-200
+                  file:cursor-pointer cursor-pointer
+                  border border-gray-300 rounded-lg p-2"
               />
               <div className="flex gap-3">
                 <button
                   onClick={handleUpload}
                   disabled={!file || uploading}
-                  className="btn-primary flex-1 disabled:opacity-50"
+                  className="flex-1 px-6 py-2.5 bg-cardozo-blue text-white rounded-lg font-semibold hover:bg-[#005A94] transition disabled:opacity-50"
                 >
                   {uploading ? 'Uploading...' : 'Upload'}
                 </button>
@@ -1112,7 +1105,7 @@ useEffect(() => {
                     setShowUploadModal(false);
                     setFile(null);
                   }}
-                  className="btn-secondary flex-1"
+                  className="flex-1 px-6 py-2.5 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition"
                 >
                   Cancel
                 </button>
@@ -1317,7 +1310,8 @@ useEffect(() => {
                       answer_type: 'multiple_choice',
                       answer_options: ['', ''],
                       module_context: '',
-                      sample_size: 20
+                      sample_size: 20,
+                      ai_provider: selectedAIProvider
                     });
                   }}
                   className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"

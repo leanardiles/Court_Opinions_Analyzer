@@ -5,20 +5,13 @@ export default function Header({ user, onLogout }) {
 
   return (
     <>
-      {/* Top Utility Bar */}
+      {/* Top Utility Bar - EMPTY FOR NOW*/}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8">
           <div className="flex justify-end items-center gap-6 text-sm text-gray-600">
-            <span>Students</span>
-            <span>Alumni</span>
-            <span>About</span>
-            <span>Give</span>
-            <span>Library</span>
-            <span>Calendars</span>
-            <span>Canvas</span>
-            <span>Luminis</span>
-            <span>DIRECTORY</span>
-            <span>SEARCH</span>
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         </div>
       </div>

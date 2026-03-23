@@ -78,7 +78,7 @@ export default function CorrectionReviewPage({ user, onLogout }) {
       if (currentIndex < corrections.length - 1) {
         setCurrentIndex(currentIndex + 1);
       } else {
-        alert('All corrections reviewed!');
+        //alert('All corrections reviewed!');
         navigate(`/module-review/${moduleId}`);
       }
     } catch (err) {
