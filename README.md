@@ -12,7 +12,7 @@ AI-powered web application for analyzing court opinions with in-context learning
 
 A web-based platform that enables legal scholars to analyze court opinions with AI assistance and human verification. The system implements a three-tier workflow:
 
-1. **AI Analysis** → Automated analysis of court opinions using Llama 3.1 (Groq Cloud) or mock AI
+1. **AI Analysis** → Automated analysis of court opinions using Llama 3.3 70B / Llama 4 Maverick (Groq Cloud)
 2. **TA Verification** → Human validators verify AI findings
 3. **Scholar Review** → Legal scholars review verified results
 
@@ -30,15 +30,22 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Cardozo Law Branded UI** (professional design system)  
 ✅ **Module-Based Verification** with configurable research questions  
 ✅ **Two-Level Context System** (project-wide + module-specific)  
-✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, 70B, 405B via Groq)  
+✅ **Collapsed Context Preview** with view/edit modal (project and module level)  
+✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, Llama 3.3 70B, Llama 4 Maverick via Groq)  
 ✅ **Cloud AI Integration** with Groq API (free tier: 14,400 requests/day)  
+✅ **Structured AI Responses** with parsed answer, reasoning and confidence scoring  
+✅ **Anchored Confidence Scoring** based on evidence quality criteria  
 ✅ **Mock AI Analysis** for testing validator workflow  
+✅ **Clone Module** with pre-populated form (name left blank for scholar)  
+✅ **Module Deletion** with tiered confirmation based on validation status  
 ✅ **Validator Dashboard** showing assigned modules with progress  
+✅ **Accurate Validation Status Display** (waiting / in progress / complete)  
 ✅ **Case-by-Case Validation Interface** with AI review and corrections  
 ✅ **Validation Completion Summary** with accuracy statistics  
 ✅ **Scholar Review Interface** with approve/reject workflow  
 ✅ **Trust Validator Bulk Approve** feature  
 ✅ **Feedback Library** for AI improvement (Round 2)  
+✅ **Alternating Color Backgrounds** for module cards  
 🚧 **Multi-Round Feedback Loop** (Coming soon)
 
 ---
@@ -51,18 +58,20 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - **ORM:** SQLAlchemy
 - **Authentication:** JWT (python-jose) + bcrypt
 - **Data Processing:** Pandas, PyArrow (Parquet support)
-- **AI Integration:** Groq API (Meta Llama 3.1 models)
+- **AI Integration:** Groq API (Meta Llama models)
 
 ### Frontend
 - **Framework:** React 18
 - **Build Tool:** Vite
-- **Styling:** Tailwind CSS
+- **Styling:** Tailwind CSS 3.4+
 - **State Management:** React Hooks
 
 ### AI Models
 - **Cloud Inference:** Groq API (free tier)
-- **Models:** Llama 3.1 8B Instant, Llama 3.1 70B Versatile, Llama 3.1 405B Reasoning
-- **Mock AI:** Built-in dummy responses for testing
+- **Models:**
+  - Llama 3.1 8B Instant (`llama-3.1-8b-instant`) — Fast
+  - Llama 3.3 70B Versatile (`llama-3.3-70b-versatile`) — Recommended
+  - Llama 4 Maverick 17B (`meta-llama/llama-4-maverick-17b-128e-instruct`) — Best Quality
 
 ---
 
@@ -162,12 +171,24 @@ When creating a module, scholars can choose from:
 
 1. **🎭 Dummy AI (Testing)** - Instant mock responses for testing validator workflow
 2. **⚡ Llama 3.1 8B (Groq - Fast)** - Quick analysis for simple questions
-3. **🎯 Llama 3.1 70B (Groq - Recommended)** - Balanced speed and accuracy (default)
-4. **🔥 Llama 3.1 405B (Groq - Best Quality)** - Highest accuracy for complex legal questions
+3. **🎯 Llama 3.3 70B (Groq - Recommended)** - Balanced speed and accuracy (default)
+4. **🔥 Llama 4 Maverick 17B (Groq - Best Quality)** - Highest accuracy for complex legal questions
 
-All Groq models run on cloud infrastructure with **no local setup required**. The free tier provides 14,400 requests per day, which is more than sufficient for typical research projects (~10 cases/module × 1 module/day = ~10 requests/day = <0.1% of quota).
+All Groq models run on cloud infrastructure with **no local setup required**. The free tier provides 14,400 requests per day, which is more than sufficient for typical research projects.
 
-**AI Provider is locked after module creation** to ensure data integrity across all cases in a module.
+**AI Provider is locked after the first module is created** to ensure data integrity across all modules in a project.
+
+### Structured AI Responses
+
+All Groq-powered analyses return structured responses with three components:
+
+- **ANSWER** — The direct answer to the research question
+- **REASONING** — 2-4 sentences citing specific parts of the opinion
+- **CONFIDENCE** — A score from 0.0 to 1.0 based on evidence quality:
+  - `0.90–1.00` = Answer explicitly and unambiguously stated in the opinion
+  - `0.70–0.89` = Answer strongly implied but not directly stated
+  - `0.50–0.69` = Opinion is ambiguous or requires significant interpretation
+  - `0.00–0.49` = Opinion lacks sufficient information or question does not apply
 
 ### Why Groq Instead of Local Ollama?
 
@@ -175,7 +196,7 @@ All Groq models run on cloud infrastructure with **no local setup required**. Th
 - ✅ **Faster inference** - Optimized hardware for LLM inference
 - ✅ **Free tier** - 14,400 requests/day (far exceeds typical usage)
 - ✅ **No installation** - Just need an API key
-- ✅ **No disk space** - Models hosted remotely (no 40GB downloads)
+- ✅ **No disk space** - Models hosted remotely
 - ✅ **Better for collaboration** - Team members don't need powerful computers
 
 ---
@@ -232,33 +253,32 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 Court_Opinions_Analyzer/
 ├── backend/
 │   ├── app/
-│   │   ├── routers/        # API endpoints
-│   │   ├── core/           # Configuration (config.py)
-│   │   ├── database.py     # Database connection
-│   │   ├── models.py       # SQLAlchemy models
-│   │   ├── schemas.py      # Pydantic schemas
-│   │   └── main.py         # FastAPI app
-│   ├── uploads/            # Uploaded Parquet files
-│   ├── venv/               # Virtual environment (not in git)
-│   ├── .env                # Environment variables (not in git)
-│   ├── .env.example        # Template for environment variables
-│   ├── database.db         # SQLite database
-│   ├── init_db.py          # Database setup script
+│   │   ├── routers/          # API endpoints
+│   │   ├── core/             # Configuration (config.py)
+│   │   ├── database.py       # Database connection
+│   │   ├── models.py         # SQLAlchemy models
+│   │   ├── schemas.py        # Pydantic schemas
+│   │   └── main.py           # FastAPI app
+│   ├── uploads/              # Uploaded Parquet files
+│   ├── venv/                 # Virtual environment (not in git)
+│   ├── .env                  # Environment variables (not in git)
+│   ├── .env.example          # Template for environment variables
+│   ├── database.db           # SQLite database
+│   ├── init_db.py            # Database setup script
 │   ├── create_test_users.py  # Test user creation
-│   └── requirements.txt    # Python dependencies
+│   └── requirements.txt      # Python dependencies
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/          # React pages
-│   │   ├── components/     # Reusable components
-│   │   ├── api/            # API client
+│   │   ├── pages/            # React pages
+│   │   ├── components/       # Reusable components
+│   │   ├── api/              # API client
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
-│   ├── node_modules/       # Node packages (not in git)
+│   ├── node_modules/         # Node packages (not in git)
 │   ├── package.json
 │   └── vite.config.js
 ├── .gitignore
-├── PROJECT_PROGRESS.txt    # Development tracker
 └── README.md
 ```
 
@@ -413,12 +433,30 @@ npm run dev
 - [x] AI provider locked after module creation
 - [x] Per-case validator assignment (fixed case count bug)
 
-**🚧 Next Steps (Days 9-10)**
-- [ ] **Day 9:** Progressive in-context learning (4 validation rounds)
-- [ ] **Day 10:** Multi-round feedback loop with accuracy improvement metrics
+**✅ Completed (Day 9 - Mar 23, 2026)**
+- [x] Clone module with pre-populated form (name left blank)
+- [x] Collapsed project context preview with view/edit modal
+- [x] Module context preview with view/edit modal (locked after launch)
+- [x] Module context field reordered in creation form
+- [x] Module deletion with tiered confirmation based on status
+- [x] Accurate validation status display (waiting / in progress / complete)
+- [x] Enriched module assignment endpoint with completion and correction data
+- [x] Alternating color backgrounds for module cards
+- [x] Fixed project status update regardless of scholar/upload order
+- [x] Fixed logout button across all pages
+- [x] Fixed login without requiring page refresh
+- [x] Fixed ai_provider missing from module form reset
+- [x] Structured AI responses with real reasoning and confidence scoring
+- [x] Anchored confidence scoring with evidence quality criteria
+- [x] Fixed Groq API integration (expired key + tokens_used bug)
+- [x] Updated Groq model names to current versions
+
+**🚧 Next Steps (Day 10)**
+- [ ] Multi-round feedback loop with accuracy improvement metrics
+- [ ] Progressive in-context learning (feedback library → Round 2 prompts)
 - [ ] Demo preparation and final testing
 
-**Progress: 8.5/10 days complete (85%)** 🎯
+**Progress: 9/10 days complete (90%)** 🎯
 
 ---
 
@@ -446,54 +484,39 @@ npm run dev
 ## 🚀 Future Enhancement Ideas
 
 ### Module Management
-- **Clone Module** - Duplicate a module with option to change AI provider
-  - Use case: Test same research question with different AI models
-  - Creates new module preserving all settings (question, answer type, sample size)
-  - Allows selecting different AI provider for comparison
-  - Enables A/B testing: Dummy AI vs. Llama 8B vs. Llama 70B vs. Llama 405B
-  - Supports research: "How does accuracy differ between models?"
 - **Module templates** - Save frequently-used module configurations
 - **Batch module creation** - Create multiple similar modules at once
+- **Per-module AI provider** - Currently locked at project level; future versions may allow per-module selection for A/B testing
 
 ### Multi-Validator Support
-- **Multiple validators per module** - Assign 2+ validators to review the same cases independently
-- **Inter-annotator agreement metrics** - Calculate Cohen's Kappa score to measure consistency
-- **Disagreement resolution workflow** - Scholar reviews cases where validators disagree
-- **Validator quality tracking** - Monitor individual validator accuracy over time
-- **Confidence scoring** - Weight validator corrections by their historical approval rate
+- **Multiple validators per module** - Assign 2+ validators independently
+- **Inter-annotator agreement metrics** - Calculate Cohen's Kappa score
+- **Disagreement resolution workflow** - Scholar reviews conflicting validations
+- **Validator quality tracking** - Monitor individual accuracy over time
 
 ### Enhanced Document Viewing
 - **MS Word preview for validators** - Visual document rendering during case review
-  - Implementation: Mammoth.js for free HTML conversion of .docx files
-  - Requires: Original Word files stored alongside Parquet data (ZIP archive recommended)
-  - Benefit: Validators can see formatted documents with original styling and structure
-- **Split-pane viewer** - Display opinion text and validation form side-by-side
-- **Annotation tools** - Highlight and annotate relevant passages in opinions
+- **Split-pane viewer** - Opinion text and validation form side-by-side
+- **Annotation tools** - Highlight and annotate relevant passages
 
 ### Advanced AI Features
 - **Multiple AI model comparison** - Run same cases through different models simultaneously
-- **Additional API providers** - Add Claude (Anthropic) and GPT-4 (OpenAI) as options
-- **Fine-tuned models** - Train custom Llama on approved corrections (after 200+ examples)
-- **Confidence calibration** - Track when AI is overconfident vs. underconfident
+- **Additional API providers** - Add Claude (Anthropic) and GPT-4 (OpenAI)
+- **Fine-tuned models** - Train custom Llama on approved corrections
 - **Active learning** - Prioritize uncertain cases for human review
 - **Error pattern detection** - Identify systematic biases in AI responses
 
 ### Workflow Enhancements
-- **Batch operations** - Upload multiple Parquet files, assign validators in bulk
 - **Email notifications** - Alert validators when new assignments arrive
-- **Progress dashboards** - Real-time analytics on project completion rates
-- **Export functionality** - Download validated results as CSV/Excel/JSONL for analysis
-- **Audit trail** - Complete history of who changed what and when
-- **Project cloning** - Duplicate entire projects with all modules and settings
+- **Export functionality** - Download validated results as CSV/Excel/JSONL
+- **Audit trail** - Complete history of changes
+- **Project cloning** - Duplicate entire projects with all modules
 
 ### Research Features
 - **Inter-coder reliability reports** - Statistical analysis of validator agreement
 - **Confusion matrices** - Visualize AI error patterns by category
-- **Longitudinal tracking** - Compare AI performance across multiple rounds
 - **Model comparison reports** - Side-by-side accuracy for different AI providers
-- **Custom metrics** - Define project-specific accuracy measures
-- **Publication-ready exports** - Generate tables and figures for academic papers
-- **Training data export** - Export approved corrections as JSONL for fine-tuning
+- **Publication-ready exports** - Tables and figures for academic papersvvvvv
 
 ---
 
