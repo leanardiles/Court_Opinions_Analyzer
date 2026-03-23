@@ -12,7 +12,7 @@ AI-powered web application for analyzing court opinions with in-context learning
 
 A web-based platform that enables legal scholars to analyze court opinions with AI assistance and human verification. The system implements a three-tier workflow:
 
-1. **AI Analysis** → Automated analysis of court opinions using Llama 3.1 (Ollama) or mock AI
+1. **AI Analysis** → Automated analysis of court opinions using Llama 3.1 (Groq Cloud) or mock AI
 2. **TA Verification** → Human validators verify AI findings
 3. **Scholar Review** → Legal scholars review verified results
 
@@ -30,8 +30,8 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Cardozo Law Branded UI** (professional design system)  
 ✅ **Module-Based Verification** with configurable research questions  
 ✅ **Two-Level Context System** (project-wide + module-specific)  
-✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, Llama 3.1 70B)  
-✅ **Real AI Integration** with Ollama/Llama 3.1  
+✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, 70B, 405B via Groq)  
+✅ **Cloud AI Integration** with Groq API (free tier: 14,400 requests/day)  
 ✅ **Mock AI Analysis** for testing validator workflow  
 ✅ **Validator Dashboard** showing assigned modules with progress  
 ✅ **Case-by-Case Validation Interface** with AI review and corrections  
@@ -51,7 +51,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - **ORM:** SQLAlchemy
 - **Authentication:** JWT (python-jose) + bcrypt
 - **Data Processing:** Pandas, PyArrow (Parquet support)
-- **AI Integration:** Ollama (Llama 3.1 8B/70B), requests
+- **AI Integration:** Groq API (Meta Llama 3.1 models)
 
 ### Frontend
 - **Framework:** React 18
@@ -60,8 +60,8 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - **State Management:** React Hooks
 
 ### AI Models
-- **Local Inference:** Ollama (Meta Llama 3.1)
-- **Models:** Llama 3.1 8B (laptop), Llama 3.1 70B (GPU)
+- **Cloud Inference:** Groq API (free tier)
+- **Models:** Llama 3.1 8B Instant, Llama 3.1 70B Versatile, Llama 3.1 405B Reasoning
 - **Mock AI:** Built-in dummy responses for testing
 
 ---
@@ -73,7 +73,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 - Python 3.10 or higher
 - Node.js 18+ and npm
 - Git
-- **Ollama** (for real AI analysis) - [Download here](https://ollama.com/download)
+- **Groq API Key** (free) - [Sign up here](https://console.groq.com)
 
 ### Installation
 
@@ -106,20 +106,27 @@ python init_db.py
 python create_test_users.py
 ```
 
-**3. Ollama Setup (for Real AI Analysis)**
+**3. Environment Variables Setup**
+
+Create a `.env` file in the `backend/` directory:
+
 ```bash
-# Install Ollama from https://ollama.com/download
-
-# Download Llama 3.1 8B model (~4.7 GB)
-ollama pull llama3.1:8b
-
-# Optional: Download Llama 3.1 70B (~40 GB, requires GPU)
-ollama pull llama3.1:70b
-
-# Verify Ollama is running
-curl http://localhost:11434
-# Should return: "Ollama is running"
+# Copy the example file
+cp .env.example .env
 ```
+
+Then edit `.env` and add your **Groq API key**:
+
+1. Sign up at https://console.groq.com
+2. Create an API key (free tier: 14,400 requests/day)
+3. Add to `.env`:
+   ```env
+   GROQ_API_KEY=gsk_your_actual_api_key_here
+   DATABASE_URL=sqlite:///./database.db
+   SECRET_KEY=your-secret-key-here
+   ```
+
+**Important:** Never commit your `.env` file to GitHub! It's already in `.gitignore`.
 
 **4. Frontend Setup**
 ```bash
@@ -131,31 +138,45 @@ npm install
 
 ### Running the Application
 
-**Start Ollama** (Terminal 1)
-```bash
-# Ollama usually auto-starts on Windows/Mac
-# Check if running:
-curl http://localhost:11434
-
-# If not running, start manually:
-ollama serve
-```
-
-**Start Backend** (Terminal 2)
+**Start Backend** (Terminal 1)
 ```bash
 cd backend
 source venv/Scripts/activate  # Windows Git Bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 ```
 Backend runs on: http://localhost:8000  
 API Documentation: http://localhost:8000/docs
 
-**Start Frontend** (Terminal 3)
+**Start Frontend** (Terminal 2)
 ```bash
 cd frontend
 npm run dev
 ```
 Frontend runs on: http://localhost:5173
+
+---
+
+## 🤖 AI Provider Options
+
+When creating a module, scholars can choose from:
+
+1. **🎭 Dummy AI (Testing)** - Instant mock responses for testing validator workflow
+2. **⚡ Llama 3.1 8B (Groq - Fast)** - Quick analysis for simple questions
+3. **🎯 Llama 3.1 70B (Groq - Recommended)** - Balanced speed and accuracy (default)
+4. **🔥 Llama 3.1 405B (Groq - Best Quality)** - Highest accuracy for complex legal questions
+
+All Groq models run on cloud infrastructure with **no local setup required**. The free tier provides 14,400 requests per day, which is more than sufficient for typical research projects (~10 cases/module × 1 module/day = ~10 requests/day = <0.1% of quota).
+
+**AI Provider is locked after module creation** to ensure data integrity across all cases in a module.
+
+### Why Groq Instead of Local Ollama?
+
+- ✅ **No GPU required** - Runs entirely in the cloud
+- ✅ **Faster inference** - Optimized hardware for LLM inference
+- ✅ **Free tier** - 14,400 requests/day (far exceeds typical usage)
+- ✅ **No installation** - Just need an API key
+- ✅ **No disk space** - Models hosted remotely (no 40GB downloads)
+- ✅ **Better for collaboration** - Team members don't need powerful computers
 
 ---
 
@@ -206,32 +227,21 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 
 ---
 
-## 🤖 AI Provider Options
-
-When creating a module, scholars can choose from:
-
-1. **🎭 Dummy AI** - Instant mock responses for testing validator workflow
-2. **🦙 Llama 3.1 8B** - Real AI analysis (local, free, runs on laptop)
-3. **🦙 Llama 3.1 70B** - Advanced model (requires GPU, placeholder for now)
-
-**AI Provider is locked after module creation** to ensure data integrity across all cases in a module.
-
----
-
 ## 📁 Project Structure
 ```
 Court_Opinions_Analyzer/
 ├── backend/
 │   ├── app/
 │   │   ├── routers/        # API endpoints
-│   │   ├── utils/          # Helper functions
-│   │   │   └── ai_service.py   # AI integration layer
+│   │   ├── core/           # Configuration (config.py)
 │   │   ├── database.py     # Database connection
 │   │   ├── models.py       # SQLAlchemy models
 │   │   ├── schemas.py      # Pydantic schemas
 │   │   └── main.py         # FastAPI app
 │   ├── uploads/            # Uploaded Parquet files
 │   ├── venv/               # Virtual environment (not in git)
+│   ├── .env                # Environment variables (not in git)
+│   ├── .env.example        # Template for environment variables
 │   ├── database.db         # SQLite database
 │   ├── init_db.py          # Database setup script
 │   ├── create_test_users.py  # Test user creation
@@ -274,21 +284,6 @@ pip install package-name
 pip freeze > requirements.txt
 ```
 
-**Ollama:**
-```bash
-# Check status
-curl http://localhost:11434
-
-# List downloaded models
-ollama list
-
-# Test model
-ollama run llama3.1:8b "Hello!"
-
-# Remove model
-ollama rm llama3.1:70b
-```
-
 **Frontend:**
 ```bash
 # Start dev server
@@ -311,6 +306,67 @@ git add .
 git commit -m "feat: description"
 git push
 ```
+
+---
+
+## 🔧 Team Setup Instructions
+
+### For New Team Members
+
+**1. Clone and Install**
+```bash
+git clone https://github.com/leanardiles/Court_Opinions_Analyzer.git
+cd Court_Opinions_Analyzer
+cd backend
+python -m venv venv
+source venv/Scripts/activate  # Windows
+pip install -r requirements.txt
+```
+
+**2. Get Your Groq API Key**
+- Go to https://console.groq.com
+- Sign up for a free account
+- Navigate to API Keys
+- Create a new API key
+- Copy the key (starts with `gsk_`)
+
+**3. Create Your .env File**
+```bash
+# In the backend/ directory
+cp .env.example .env
+```
+
+Edit `.env` and paste your API key:
+```env
+GROQ_API_KEY=gsk_paste_your_key_here
+DATABASE_URL=sqlite:///./database.db
+SECRET_KEY=your-secret-key-here
+```
+
+**4. Initialize Database**
+```bash
+python init_db.py
+python create_test_users.py
+```
+
+**5. Start the App**
+```bash
+# Terminal 1: Backend
+cd backend
+source venv/Scripts/activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2: Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+**6. Test It Works**
+- Go to http://localhost:5173
+- Login as `scholar1@cardozo.edu` / `scholar123`
+- Create a module with Groq Llama 70B
+- Launch it and verify AI analysis runs successfully
 
 ---
 
@@ -348,13 +404,14 @@ git push
 - [x] Feedback library integration
 - [x] Dynamic button states
 
-**✅ Completed (Day 8.5 - Mar 19, 2026)**
-- [x] Ollama/Llama 3.1 integration
-- [x] AI provider selection dropdown (3 options)
-- [x] AIService abstraction layer with multiple providers
-- [x] Real AI analysis with Llama 3.1 8B
+**✅ Completed (Day 8.5 - Mar 21, 2026)**
+- [x] Groq Cloud API integration
+- [x] Migration from Ollama to Groq for better team collaboration
+- [x] AI provider selection dropdown (4 options: Dummy, 8B, 70B, 405B)
+- [x] Real AI analysis with Llama 3.1 models (cloud-hosted)
+- [x] Environment variable management with .env
 - [x] AI provider locked after module creation
-- [x] In-context learning foundation (feedback examples in prompts)
+- [x] Per-case validator assignment (fixed case count bug)
 
 **🚧 Next Steps (Days 9-10)**
 - [ ] **Day 9:** Progressive in-context learning (4 validation rounds)
@@ -365,6 +422,27 @@ git push
 
 ---
 
+## 💰 Cost Analysis (Groq API)
+
+### Free Tier Limits
+- **Requests per day:** 14,400
+- **Requests per minute:** 30
+- **Tokens per minute:** 7,000
+
+### Typical Usage
+- **Average case:** ~500 tokens (input + output)
+- **Module with 10 cases:** ~5,000 tokens
+- **Daily capacity:** ~100 modules (far exceeds typical usage)
+
+### Cost if Scaling Beyond Free Tier
+- **Llama 3.1 8B:** $0.05 per million tokens (~$0.0003 per case)
+- **Llama 3.1 70B:** $0.59 per million tokens (~$0.003 per case)
+- **Llama 3.1 405B:** $2.80 per million tokens (~$0.014 per case)
+
+**Example:** Analyzing 1,000 cases with 70B = ~$3.00 total
+
+---
+
 ## 🚀 Future Enhancement Ideas
 
 ### Module Management
@@ -372,7 +450,7 @@ git push
   - Use case: Test same research question with different AI models
   - Creates new module preserving all settings (question, answer type, sample size)
   - Allows selecting different AI provider for comparison
-  - Enables A/B testing: Dummy AI vs. Llama 8B vs. Llama 70B
+  - Enables A/B testing: Dummy AI vs. Llama 8B vs. Llama 70B vs. Llama 405B
   - Supports research: "How does accuracy differ between models?"
 - **Module templates** - Save frequently-used module configurations
 - **Batch module creation** - Create multiple similar modules at once
@@ -394,7 +472,7 @@ git push
 
 ### Advanced AI Features
 - **Multiple AI model comparison** - Run same cases through different models simultaneously
-- **API-based models** - Add Claude (Anthropic) and GPT-4 (OpenAI) as provider options
+- **Additional API providers** - Add Claude (Anthropic) and GPT-4 (OpenAI) as options
 - **Fine-tuned models** - Train custom Llama on approved corrections (after 200+ examples)
 - **Confidence calibration** - Track when AI is overconfident vs. underconfident
 - **Active learning** - Prioritize uncertain cases for human review
@@ -424,6 +502,41 @@ git push
 - **API Documentation:** http://localhost:8000/docs (auto-generated Swagger UI)
 - **Database Schema:** `backend/docs/DATABASE_SCHEMA.txt`
 - **Development Log:** `PROJECT_PROGRESS.txt`
+- **Groq API Docs:** https://console.groq.com/docs
+
+---
+
+## 🐛 Troubleshooting
+
+### "No API key found - falling back to mock"
+**Problem:** Groq API key not loaded  
+**Solution:** 
+1. Check `.env` file exists in `backend/` directory
+2. Verify `GROQ_API_KEY=gsk_...` is set (no quotes)
+3. Restart backend server after editing `.env`
+4. Check `main.py` has `load_dotenv()` at the top
+
+### "Module uses dummy AI instead of Groq"
+**Problem:** Project's default AI provider still set to old value  
+**Solution:**
+1. Create a new project (defaults to `groq-llama-70b`)
+2. Or update existing project in database: `UPDATE projects SET ai_provider='groq-llama-70b' WHERE id=X;`
+
+### Backend won't start / import errors
+**Problem:** Missing dependencies  
+**Solution:**
+```bash
+cd backend
+source venv/Scripts/activate
+pip install -r requirements.txt
+```
+
+### Frontend shows connection errors
+**Problem:** Backend not running  
+**Solution:**
+1. Check backend is running on port 8000
+2. Visit http://localhost:8000/docs to verify
+3. Check CORS settings in `main.py`
 
 ---
 
