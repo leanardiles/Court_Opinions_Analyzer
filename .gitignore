@@ -19,3 +19,7 @@ Thumbs.db
 # Specific files to ignore
 PROJECT_PROGRESS.txt
 STARTUP_GUIDE.txt
+
+# Parsing script (local utility, not part of project)
+backend/parse_court_opinions_parquet.py
+backend/parse_court_opinions_JSON.py
