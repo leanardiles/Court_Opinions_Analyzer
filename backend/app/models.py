@@ -76,6 +76,9 @@ class Project(Base):
     # Foreign Keys
     admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     scholar_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # AI provider selection
+    ai_provider = Column(String, default="groq-llama-70b")
     
     # Metadata about the uploaded Parquet file
     parquet_filename = Column(String, nullable=True)  # Original filename

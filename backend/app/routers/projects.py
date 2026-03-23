@@ -454,6 +454,52 @@ def update_ai_model(
         "ai_model": ai_model
     }
 
+@router.patch("/{project_id}/ai-provider")
+async def update_project_ai_provider(
+    project_id: int,
+    ai_provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update the AI provider for a project.
+    Can only be changed by scholar before any modules are created.
+    """
+    # Get project
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check permission - must be scholar assigned to project or admin
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this project")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if modules exist - if yes, cannot change AI provider
+    module_count = db.query(VerificationModule).filter(
+        VerificationModule.project_id == project_id
+    ).count()
+    if module_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot change AI provider after modules have been created"
+        )
+    
+    # Validate AI provider
+    valid_providers = ["dummy", "ollama-8b", "ollama-70b"]
+    if ai_provider not in valid_providers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid AI provider. Must be one of: {', '.join(valid_providers)}"
+        )
+    
+    # Update project
+    project.ai_provider = ai_provider
+    db.commit()
+    
+    return {"message": "AI provider updated successfully", "ai_provider": ai_provider}
+
 
 @router.patch("/{project_id}/send-to-scholar")
 def send_to_scholar(

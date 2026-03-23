@@ -110,6 +110,14 @@ export const projectsAPI = {
     return response.data;
   },
 
+  // Update project AI provider (scholar sets this before creating modules)
+  updateAIProvider: async (projectId, aiProvider) => {
+    const response = await apiClient.patch(
+      `/projects/${projectId}/ai-provider?ai_provider=${encodeURIComponent(aiProvider)}`
+    );
+    return response.data;
+  },
+
   // Project Context
   getContext: async (projectId) => {
     const response = await apiClient.get(`/projects/${projectId}/context`);
@@ -209,12 +217,24 @@ export const modulesAPI = {
     return response.data;
   },
 
-  // Mock AI Analysis
+  // Mock AI Analysis (for testing - will be replaced with real AI later)
   launchMockAI: async (moduleId) => {
     const response = await apiClient.post(`/modules/modules/${moduleId}/launch-mock-ai`);
     return response.data;
   },
+
+  // Get available AI providers from backend
+  getAIProviders: async () => {
+    const response = await apiClient.get('/modules/ai-providers');
+    return response.data;
+  },
   
+  // Launch module (sample cases + run AI analysis)
+  launchModule: async (moduleId) => {
+    const response = await apiClient.post(`/modules/${moduleId}/launch`);
+    return response.data;
+  },
+
   // Scholar Review endpoints
   getValidationSummary: async (moduleId) => {
     const response = await apiClient.get(`/modules/modules/${moduleId}/validation-summary`);
@@ -240,12 +260,6 @@ export const modulesAPI = {
 
   trustValidator: async (moduleId) => {
     const response = await apiClient.post(`/modules/modules/${moduleId}/trust-validator`);
-    return response.data;
-  },
-
-  // Get AI providers
-  getAIProviders: async () => {
-    const response = await apiClient.get('/modules/ai-providers');
     return response.data;
   },
 };

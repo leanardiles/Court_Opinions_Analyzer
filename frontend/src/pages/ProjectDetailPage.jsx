@@ -21,23 +21,53 @@ export default function ProjectDetailPage() {
   const [showCasesModal, setShowCasesModal] = useState(false);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [aiProviders, setAiProviders] = useState([]);
+  const [selectedAIProvider, setSelectedAIProvider] = useState('groq-llama-70b');
   const [showScholarModal, setShowScholarModal] = useState(false);
   const [scholars, setScholars] = useState([]);
   const [loadingScholars, setLoadingScholars] = useState(false);
   const [modules, setModules] = useState([]);
   const [showModuleModal, setShowModuleModal] = useState(false);
-  const [moduleFormData, setModuleFormData] = useState({
-    module_name: '',
-    question_text: '',
-    answer_type: 'multiple_choice',
-    answer_options: ['', ''],
-    module_context: '',
-    sample_size: 20
-  });
+const [moduleFormData, setModuleFormData] = useState({
+  module_name: '',
+  question_text: '',
+  answer_type: 'multiple_choice',
+  answer_options: ['', ''],
+  module_context: '',
+  sample_size: 20
+});
 
   useEffect(() => {
     loadData();
   }, [projectId]);
+
+  // Load AI providers
+useEffect(() => {
+  const fetchAIProviders = async () => {
+    try {
+      const response = await modulesAPI.getAIProviders();
+      setAiProviders(response.providers);
+      // Set default provider if available
+      if (response.default) {
+        setModuleFormData(prev => ({
+          ...prev,
+          ai_provider: response.default
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load AI providers:', err);
+      // Fallback to hardcoded options
+      setAiProviders([
+        { value: 'dummy', label: 'Dummy AI (Testing)' },
+        { value: 'groq-llama-8b', label: '⚡ Llama 3.1 8B (Groq - Fast)' },
+        { value: 'groq-llama-70b', label: '🎯 Llama 3.1 70B (Groq - Recommended)' },
+        { value: 'groq-llama-405b', label: '🔥 Llama 3.1 405B (Groq - Best Quality)' }
+      ]);
+    }
+  };
+  
+  fetchAIProviders();
+}, []);
 
   const [projectContext, setProjectContext] = useState('');
   const [showContextEditor, setShowContextEditor] = useState(false);
@@ -95,10 +125,15 @@ export default function ProjectDetailPage() {
       setProject(projectData);
       setCases(casesData);
 
+      // Set AI provider from project data
+      if (projectData.ai_provider) {
+        setSelectedAIProvider(projectData.ai_provider);
+      }
+
       // Load modules and context if scholar
       if (userData.role === 'scholar') {
         await loadModules();
-        await loadProjectContext();  // 🆕 ADD THIS LINE
+        await loadProjectContext();
       }
 
       if (casesData.length > 0) {
@@ -207,6 +242,17 @@ export default function ProjectDetailPage() {
       loadData();
     } catch (err) {
       alert('Failed to send project: ' + (err.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const handleProjectAIProviderChange = async (newProvider) => {
+    try {
+      await projectsAPI.updateAIProvider(projectId, newProvider);
+      setSelectedAIProvider(newProvider);
+      alert('AI Provider updated successfully!');
+      loadData();
+    } catch (err) {
+      alert('Failed to update AI provider: ' + (err.response?.data?.detail || 'Unknown error'));
     }
   };
 
@@ -348,6 +394,26 @@ export default function ProjectDetailPage() {
       alert('Failed to save context: ' + (err.response?.data?.detail || 'Unknown error'));
     } finally {
       setSavingContext(false);
+    }
+  };
+
+  const handleLaunchModule = async (moduleId) => {
+    if (!window.confirm(
+      'Launch this module?\n\n' +
+      'This will:\n' +
+      '1. Sample cases for validation\n' +
+      '2. Run AI analysis using the selected AI provider\n\n' +
+      'This action cannot be undone.'
+    )) {
+      return;
+    }
+    
+    try {
+      const result = await modulesAPI.launchModule(moduleId);
+      alert(result.message || 'Module launched successfully!');
+      loadModules(); // Reload to show updated status
+    } catch (err) {
+      alert('Failed to launch module: ' + (err.response?.data?.detail || 'Unknown error'));
     }
   };
 
@@ -556,75 +622,13 @@ export default function ProjectDetailPage() {
                     <span>{project.total_cases} cases</span>
                   </div>
                   
-                  {/* 🆕 View Source File Button */}
+                  {/* View Source File Button */}
                   <button
                     onClick={() => setShowCasesModal(true)}
                     className="px-3 py-1.5 bg-cardozo-blue text-white rounded-lg text-sm font-medium hover:bg-[#005A94] transition"
                   >
                     📄 View Source File
                   </button>
-                </div>
-
-                {/* AI Model Selection */}    
-                <div className="flex items-center gap-2 text-sm bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                  <svg className="w-4 h-4 text-cardozo-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  <span className="font-semibold text-gray-700">AI Model:</span>
-                  <select
-                    value={project.ai_model}
-                    onChange={(e) => handleAIModelChange(e.target.value)}
-                    className="px-3 py-1 bg-white border border-blue-300 rounded-md text-gray-900 font-medium focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
-                  >
-                    <option value="GPT-5.2">GPT-5.2</option>
-                    <option value="Sonnet 4.5">Sonnet 4.5</option>
-                    <option value="Gemini 3.1">Gemini 3.1</option>
-                  </select>
-                </div>
-
-                {/* API Usage Module */}
-                <div className="bg-green-50 px-4 py-3 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-4 h-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span className="font-semibold text-green-900 text-sm">API Usage Tracking</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-600 text-xs">Total Tokens</div>
-                      <div className="font-bold text-green-900">{project.total_tokens_used.toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 text-xs">Total Cost</div>
-                      <div className="font-bold text-green-900">${project.total_cost.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 text-xs">Budget</div>
-                      <div className="font-bold text-green-900">${project.budget_limit.toFixed(2)}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Budget Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>Budget Used</span>
-                      <span>{((project.total_cost / project.budget_limit) * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-green-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          (project.total_cost / project.budget_limit) > 0.9 
-                            ? 'bg-red-600' 
-                            : (project.total_cost / project.budget_limit) > 0.7 
-                              ? 'bg-yellow-600' 
-                              : 'bg-green-600'
-                        }`}
-                        style={{ width: `${Math.min((project.total_cost / project.budget_limit) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -634,8 +638,7 @@ export default function ProjectDetailPage() {
         {/* Action Buttons - Scholar */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
           <div className="mb-6">
-          
-            {/* Show Parquet filename and AI info if uploaded */}
+            {/* Show Parquet filename and AI provider selector if uploaded */}
             {project?.parquet_filename && (
               <div className="space-y-3">
                 {/* Parquet File Info */}
@@ -650,7 +653,7 @@ export default function ProjectDetailPage() {
                     <span>{project.total_cases} cases</span>
                   </div>
                   
-                  {/* 🆕 View Source File Button */}
+                  {/* View Source File Button */}
                   <button
                     onClick={() => setShowCasesModal(true)}
                     className="px-3 py-1.5 bg-cardozo-blue text-white rounded-lg text-sm font-medium hover:bg-[#005A94] transition"
@@ -659,67 +662,57 @@ export default function ProjectDetailPage() {
                   </button>
                 </div>
 
-                {/* AI Model Display (Read-Only) */}
-                <div className="flex items-center gap-2 text-sm bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                  <svg className="w-4 h-4 text-cardozo-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  <span className="font-semibold text-gray-700">AI Model:</span>
-                  <span className="px-3 py-1 bg-white border border-blue-300 rounded-md text-gray-900 font-medium">
-                    {project.ai_model}
-                  </span>
-                  <span className="text-xs text-gray-500 italic ml-2">(Set by admin)</span>
-                </div>
-
-                {/* API Usage Module */}
-                <div className="bg-green-50 px-4 py-3 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-4 h-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span className="font-semibold text-green-900 text-sm">API Usage Tracking</span>
+                {/* AI Provider Selection - Scholar can change this */}
+                <div className="bg-blue-50 px-4 py-3 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-cardozo-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <span className="font-semibold text-gray-700">AI Provider:</span>
+                      <select
+                        value={selectedAIProvider}
+                        onChange={(e) => handleProjectAIProviderChange(e.target.value)}
+                        disabled={modules.length > 0}
+                        className="px-3 py-1.5 bg-white border border-blue-300 rounded-md text-gray-900 font-medium focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {aiProviders.length === 0 ? (
+                          <option value="ollama-8b">Loading...</option>
+                        ) : (
+                          aiProviders.map((provider) => (
+                            <option key={provider.value} value={provider.value}>
+                              {provider.label}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    
+                    {/* Info badge */}
+                    <div className="text-xs text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                      {modules.length > 0 ? (
+                        <>🔒 Locked (modules exist)</>
+                      ) : (
+                        <>✏️ Can be changed</>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-600 text-xs">Total Tokens</div>
-                      <div className="font-bold text-green-900">{project.total_tokens_used.toLocaleString()}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 text-xs">Total Cost</div>
-                      <div className="font-bold text-green-900">${project.total_cost.toFixed(2)}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-600 text-xs">Budget</div>
-                      <div className="font-bold text-green-900">${project.budget_limit.toFixed(2)}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Budget Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
-                      <span>Budget Used</span>
-                      <span>{((project.total_cost / project.budget_limit) * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-green-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          (project.total_cost / project.budget_limit) > 0.9 
-                            ? 'bg-red-600' 
-                            : (project.total_cost / project.budget_limit) > 0.7 
-                              ? 'bg-yellow-600' 
-                              : 'bg-green-600'
-                        }`}
-                        style={{ width: `${Math.min((project.total_cost / project.budget_limit) * 100, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  {modules.length === 0 && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      💡 Select AI provider before creating modules. This will apply to all modules in this project.
+                    </p>
+                  )}
+                  {modules.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      ⚠️ AI provider cannot be changed once modules are created.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
           </div>
-        )}
-
+        )}    
 
         {/* Project Context Section - Scholar only */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
@@ -824,7 +817,7 @@ export default function ProjectDetailPage() {
                             )}
                           </div>
 
-                          {/* 🆕 Assignment Info */}
+                          {/*Assignment Info */}
                           <div className="flex gap-4 text-sm mb-3">
                             {assignment.sampled ? (
                               <span className="flex items-center gap-1 text-green-700">
@@ -849,18 +842,10 @@ export default function ProjectDetailPage() {
                             )}
                           </div>
 
-                          {/* 🆕 Action Buttons */}
+                          {/* Action Buttons */}
                           <div className="flex gap-2 mt-4">
-                            {!assignment.sampled && (
-                              <button
-                                onClick={() => handleSampleCases(module.id)}
-                                className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
-                              >
-                                🎲 Sample Cases
-                              </button>
-                            )}
-                            
-                            {assignment.sampled && !assignment.validator && (
+                            {/* Step 1: Assign Validator (shows when no validator assigned) */}
+                            {!assignment.validator && (
                               <button
                                 onClick={() => handleOpenValidatorModal(module)}
                                 className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
@@ -868,20 +853,20 @@ export default function ProjectDetailPage() {
                                 👤 Assign Validator
                               </button>
                             )}
-
-                            {/*Launch AI Button (fake AI analysis, to delete later when AI API is used*/}
-                            {assignment.sampled && assignment.validator && module.status === 'ready_for_validation' && (
+                            
+                            {/* Step 2: Launch Module (shows after validator assigned, before sampling) */}
+                            {assignment.validator && !assignment.sampled && (
                               <button
-                                onClick={() => handleLaunchMockAI(module.id)}
+                                onClick={() => handleLaunchModule(module.id)}
                                 className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
                               >
-                                🚀 Launch AI Analysis
+                                🚀 Launch Module
                               </button>
                             )}
-
-                            {module.status === 'validation_in_progress' && (
+                            
+                            {/* Step 3: Review Corrections (shows after module launched) */}
+                            {module.status === 'validation_in_progress' && assignment.sampled && (
                               <>
-                                {/* Check if there are pending corrections */}
                                 {assignment.corrections_pending > 0 ? (
                                   <button 
                                     onClick={() => navigate(`/module-review/${module.id}`)}
@@ -899,7 +884,6 @@ export default function ProjectDetailPage() {
                                 )}
                               </>
                             )}
-
                           </div>
                         </div>
                       </div>
@@ -1131,33 +1115,33 @@ export default function ProjectDetailPage() {
                   Number of cases to randomly sample from {project?.total_cases || 0} total cases
                 </p>
               </div>
-            </div>
 
-            {/* Buttons */}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleCreateModule}
-                className="flex-1 px-6 py-2.5 bg-cardozo-gold text-white rounded-lg font-semibold hover:bg-yellow-600 transition"
-              >
-                Create Module
-              </button>
-              <button
-                onClick={() => {
-                  setShowModuleModal(false);
-                  setModuleFormData({
-                    module_name: '',
-                    question_text: '',
-                    answer_type: 'multiple_choice',
-                    answer_options: ['', ''],
-                    module_context: '',
-                    sample_size: 20
-                  });
-                }}
-                className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
-              >
-                Cancel
-              </button>
-            </div>
+              {/* Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleCreateModule}
+                  className="flex-1 px-6 py-2.5 bg-cardozo-gold text-white rounded-lg font-semibold hover:bg-yellow-600 transition"
+                >
+                  Create Module
+                </button>
+                <button
+                  onClick={() => {
+                    setShowModuleModal(false);
+                    setModuleFormData({
+                      module_name: '',
+                      question_text: '',
+                      answer_type: 'multiple_choice',
+                      answer_options: ['', ''],
+                      module_context: '',
+                      sample_size: 20
+                    });
+                  }}
+                  className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>  
           </div>
         </div>
       )}

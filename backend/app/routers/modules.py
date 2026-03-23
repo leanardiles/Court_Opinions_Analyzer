@@ -32,14 +32,16 @@ router = APIRouter(prefix="/modules", tags=["Verification Modules"])
 @router.get("/ai-providers")
 def get_ai_providers():
     """Get list of available AI providers"""
-    from app.utils.ai_service import AIService
+    providers = [
+        {"value": "dummy", "label": "Dummy AI (Testing)"},
+        {"value": "groq-llama-8b", "label": "⚡ Llama 3.1 8B Instant (Groq - Fast)"},
+        {"value": "groq-llama-70b", "label": "🎯 Llama 3.3 70B Versatile (Groq - Recommended)"},
+        {"value": "groq-llama-405b", "label": "🔥 Llama 4 Maverick 17B (Groq - Best Quality)"}
+    ]
     
     return {
-        "providers": [
-            {"value": key, "label": label}
-            for key, label in AIService.PROVIDERS.items()
-        ],
-        "default": "ollama-8b"
+        "providers": providers,
+        "default": "groq-llama-70b"
     }
 
 
@@ -69,13 +71,14 @@ def create_module(
     elif current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="Only scholars or admins can create modules")
     
-    # Validate AI provider 
-    from app.utils.ai_service import AIService
     
-    if module_data.ai_provider not in AIService.PROVIDERS:
+    # Validate AI provider
+    VALID_PROVIDERS = ["dummy", "groq-llama-8b", "groq-llama-70b", "groq-llama-405b"]
+
+    if module_data.ai_provider not in VALID_PROVIDERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid AI provider. Must be one of: {list(AIService.PROVIDERS.keys())}"
+            detail=f"Invalid AI provider. Must be one of: {VALID_PROVIDERS}"
         )
     
     # Validate answer_options for multiple_choice
@@ -313,7 +316,7 @@ def assign_validator(
 ):
     """
     Assign a validator to a module.
-    Creates validator_assignments for all sampled cases in this module.
+    Validator will review cases after module is launched.
     """
     # Get module
     module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
@@ -327,20 +330,15 @@ def assign_validator(
     elif current_user.role.value not in ["scholar", "admin"]:
         raise HTTPException(status_code=403, detail="Permission denied")
     
-    # Verify validator exists
+    # Verify validator exists and has validator role
     validator = db.query(User).filter(User.id == validator_id).first()
-    if not validator or validator.role.value != "validator":
-        raise HTTPException(status_code=400, detail="Invalid validator")
+    if not validator:
+        raise HTTPException(status_code=404, detail="Validator not found")
     
-    # Check if cases are sampled
-    samples = db.query(ModuleCaseSample).filter(
-        ModuleCaseSample.module_id == module_id
-    ).all()
-    
-    if not samples:
+    if validator.role.value != "validator":
         raise HTTPException(
             status_code=400,
-            detail="Must sample cases before assigning validator"
+            detail=f"User {validator.email} is not a validator"
         )
     
     # Check if validator already assigned
@@ -349,30 +347,26 @@ def assign_validator(
     ).first()
     
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="Validator already assigned. Unassign first to change."
-        )
-    
-    # Create assignments for each sampled case
-    for sample in samples:
+        # Update existing assignment
+        existing.validator_id = validator_id
+        db.commit()
+        message = f"Validator updated to {validator.email}"
+    else:
+        # Create new validator assignment (one per module, not per case)
         assignment = ValidatorAssignment(
             module_id=module_id,
-            case_id=sample.case_id,
-            validator_id=validator_id,
-            status="pending"
+            validator_id=validator_id
         )
         db.add(assignment)
+        db.commit()
+        message = f"Validator {validator.email} assigned successfully"
     
-    # Update module status
-    module.status = "ready_for_validation"
-    db.commit()
+    # Don't change module status here - it will change when module is launched
     
     return {
         "success": True,
-        "message": f"Assigned {validator.email} to validate {len(samples)} cases",
-        "validator_email": validator.email,
-        "case_count": len(samples)
+        "message": message,
+        "validator_email": validator.email
     }
 
 
@@ -433,6 +427,8 @@ def launch_mock_ai_analysis(
     
     # Check permissions (assigned scholar or admin)
     project = db.query(Project).filter(Project.id == module.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
     if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the assigned scholar can launch AI analysis")
     elif current_user.role.value not in ["scholar", "admin"]:
@@ -548,6 +544,10 @@ def get_my_assignments(
         
         project = db.query(Project).filter(Project.id == module.project_id).first()
         
+        # ✅ ADD THIS NULL CHECK
+        if not project:
+            continue  # Skip this module if project doesn't exist
+        
         # Count total cases and completed validations
         total_cases = db.query(ValidatorAssignment).filter(
             ValidatorAssignment.module_id == module_id,
@@ -578,6 +578,358 @@ def get_my_assignments(
         })
     
     return result
+
+
+@router.post("/{module_id}/launch")
+def launch_module(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Launch module: Sample cases AND run AI analysis in one step.
+    Uses the project's ai_provider setting to determine which AI to use.
+    """
+    from app.models import (
+        Project, CourtCase, ModuleCaseSample, ValidatorAssignment, 
+        AIAnalysis, VerificationModule
+    )
+    import random
+    
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Get project to check AI provider
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Permission check
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if validator is assigned
+    validator_assignment = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id
+    ).first()
+    
+    if not validator_assignment:
+        raise HTTPException(
+            status_code=400,
+            detail="Validator must be assigned before launching module"
+        )
+    
+    # Check if already sampled
+    existing_samples = db.query(ModuleCaseSample).filter(
+        ModuleCaseSample.module_id == module_id
+    ).count()
+    
+    if existing_samples > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Module already launched with sampled cases"
+        )
+    
+    # STEP 1: Sample cases
+    all_cases = db.query(CourtCase).filter(
+        CourtCase.project_id == module.project_id
+    ).all()
+    
+    if len(all_cases) == 0:
+        raise HTTPException(status_code=400, detail="No cases available to sample")
+    
+    sample_size = min(module.sample_size, len(all_cases))
+    sampled_cases = random.sample(all_cases, sample_size)
+    
+    # Create case samples
+    for idx, case in enumerate(sampled_cases, start=1):
+        sample = ModuleCaseSample(
+            module_id=module_id,
+            case_id=case.id,
+            sample_order=idx
+        )
+        db.add(sample)
+    
+    # Update module status
+    module.status = "ai_analyzing"
+    module.launched_at = datetime.utcnow()
+    db.commit()
+    
+    # STEP 2: Run AI analysis based on project's ai_provider
+    # Use module's AI provider first, then project's, then fallback
+    ai_provider = module.ai_provider or project.ai_provider or "dummy"
+
+    # DEBUG LINE:
+    print(f"DEBUG: ai_provider = {ai_provider}")
+
+    # if ai_provider == "dummy":
+    #     # Use mock AI
+    #     _run_mock_ai_analysis(module, sampled_cases, db)
+    #     ai_used = "Dummy AI (Mock)"
+    # elif ai_provider in ["groq-llama-8b", "groq-llama-70b", "groq-llama-405b"]:
+    #     # Use Llama via Groq API
+    #     _run_groq_ai_analysis(module, sampled_cases, ai_provider, project, db)
+    #     model_size = ai_provider.split('-')[2].upper()  # Extracts "8B", "70B", or "405B"
+    #     ai_used = f"Llama 3.1 {model_size} (Groq Cloud)"
+    # else:
+    #     # Fallback to mock
+    #     _run_mock_ai_analysis(module, sampled_cases, db)
+    #     ai_used = "Dummy AI (Mock - fallback)"
+
+    if ai_provider == "dummy":
+        print("DEBUG: Calling _run_mock_ai_analysis (dummy)")
+        _run_mock_ai_analysis(module, sampled_cases, db)
+        ai_used = "Dummy AI (Mock)"
+    elif ai_provider in ["groq-llama-8b", "groq-llama-70b", "groq-llama-405b"]:
+        print("DEBUG: Calling _run_groq_ai_analysis")
+        _run_groq_ai_analysis(module, sampled_cases, ai_provider, project, db)
+        model_size = ai_provider.split('-')[2].upper()
+        ai_used = f"Llama 3.3 {model_size} (Groq Cloud)"
+    else:
+        print(f"DEBUG: Fallback - ai_provider was {ai_provider}")
+        _run_mock_ai_analysis(module, sampled_cases, db)
+        ai_used = "Dummy AI (Mock - fallback)"
+
+    # STEP 3: Create ValidatorAssignment records for each sampled case
+    # Get the validator who was assigned to this module
+    validator_assignment = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id
+    ).first()
+
+    if validator_assignment:
+        validator_id = validator_assignment.validator_id
+        
+        # Delete the single module-level assignment
+        db.delete(validator_assignment)
+        
+        # Create one assignment per case
+        for case in sampled_cases:
+            case_assignment = ValidatorAssignment(
+                module_id=module_id,
+                validator_id=validator_id,
+                case_id=case.id
+            )
+            db.add(case_assignment)
+
+    # Update module status to ready for validation
+    module.status = "validation_in_progress"
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Module launched successfully! {sample_size} cases sampled and analyzed using {ai_used}.",
+        "cases_sampled": sample_size,
+        "ai_provider": ai_provider,
+        "ai_used": ai_used
+    }
+
+
+def _run_mock_ai_analysis(module: VerificationModule, sampled_cases: list, db: Session):
+    """Run mock AI analysis (existing logic)"""
+    from app.models import AIAnalysis
+    import random
+    
+    # Generate mock responses for each case
+    for case in sampled_cases:
+        if module.answer_type == "yes_no":
+            ai_answer = random.choice(["Yes", "No"])
+        elif module.answer_type == "multiple_choice" and module.answer_options:
+            ai_answer = random.choice(module.answer_options)
+        elif module.answer_type == "integer":
+            ai_answer = str(random.randint(1, 100))
+        elif module.answer_type == "date":
+            ai_answer = f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+        else:
+            ai_answer = "Mock AI response for text question"
+        
+        ai_analysis = AIAnalysis(
+            module_id=module.id,
+            case_id=case.id,
+            ai_answer=ai_answer,
+            ai_reasoning="Mock reasoning generated by dummy AI",
+            ai_confidence=random.uniform(0.7, 0.99),
+            ai_round=module.ai_round,
+            model_used="dummy-ai-v1",
+            tokens_used=random.randint(100, 500),
+            cost=0.0
+        )
+        db.add(ai_analysis)
+
+
+def _run_groq_ai_analysis(module: VerificationModule, sampled_cases: list, 
+                          ai_provider: str, project: Project, db: Session):
+    """Run AI analysis using Groq API (cloud-hosted Llama models)"""
+    try:
+        from app.models import AIAnalysis
+        from groq import Groq
+        import os
+        
+        print(f"🔍 DEBUG: Inside _run_groq_ai_analysis with {len(sampled_cases)} cases")
+        
+        # Map provider names to Groq model names
+        model_map = {
+            "groq-llama-8b": "llama-3.1-8b-instant",
+            "groq-llama-70b": "llama-3.3-70b-versatile",
+            "groq-llama-405b": "meta-llama/llama-4-maverick-17b-128e-instruct"
+        }
+        
+        groq_model = model_map.get(ai_provider, "llama-3.3-70b-versatile")
+        print(f"🔍 DEBUG: Using Groq model: {groq_model}")
+        
+        # Initialize Groq client
+        api_key = os.getenv("GROQ_API_KEY")
+        print(f"🔍 DEBUG: GROQ_API_KEY exists: {bool(api_key)}, length: {len(api_key) if api_key else 0}")
+        
+        if not api_key:
+            print("❌ DEBUG: No API key found - falling back to mock")
+            _run_mock_ai_analysis(module, sampled_cases, db)
+            return
+        
+        print(f"🔍 DEBUG: Creating Groq client...")
+        client = Groq(api_key=api_key)
+        print(f"✅ DEBUG: Groq client created successfully")
+        
+        # Get project context
+        print(f"🔍 DEBUG: Fetching project context...")
+        from app.models import ProjectContext
+        project_context_obj = db.query(ProjectContext).filter(
+            ProjectContext.project_id == project.id
+        ).first()
+        project_context = project_context_obj.context_text if project_context_obj else None
+        print(f"✅ DEBUG: Project context fetched (exists: {bool(project_context)})")
+        
+        print(f"🔍 DEBUG: Starting loop through {len(sampled_cases)} cases...")
+        
+        # Process each case
+        for case in sampled_cases:
+            print(f"🔍 DEBUG: Processing case {case.id}...")
+            
+            try:
+                # Build the prompt
+                prompt = _build_llama_prompt(
+                    question=module.question_text,
+                    case_text=case.opinion_text or "",
+                    answer_type=module.answer_type,
+                    answer_options=module.answer_options,
+                    project_context=project_context,
+                    module_context=module.module_context
+                )
+                
+                print(f"🔍 DEBUG: Prompt built, calling Groq API...")
+                
+                # Call Groq API
+                response = client.chat.completions.create(
+                    model=groq_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=500
+                )
+                
+                print(f"✅ DEBUG: Got API response for case {case.id}")
+                
+                # Extract answer and calculate cost
+                ai_answer = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens if response.usage else 0
+                
+                # Cost calculation (approximate Groq pricing)
+                if "8b" in ai_provider:
+                    cost_per_token = 0.00000027  # $0.27 per million tokens
+                else:
+                    cost_per_token = 0.00000059  # $0.59 per million tokens for 70B/405B
+                
+                cost = tokens_used * cost_per_token
+                
+                # Create AI analysis record
+                ai_analysis = AIAnalysis(
+                    module_id=module.id,
+                    case_id=case.id,
+                    ai_answer=ai_answer,
+                    ai_reasoning="Generated by Groq Cloud API",
+                    ai_confidence=0.85,
+                    ai_round=module.ai_round,
+                    model_used=groq_model,
+                    tokens_used=tokens_used,
+                    cost=cost
+                )
+                db.add(ai_analysis)
+                print(f"✅ DEBUG: AI analysis record created for case {case.id}")
+                
+            except Exception as e:
+                # Handle errors for individual cases
+                print(f"❌ ERROR processing case {case.id}: {str(e)}")
+                print(f"❌ Error type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
+                
+                # Create error record
+                ai_analysis = AIAnalysis(
+                    module_id=module.id,
+                    case_id=case.id,
+                    ai_answer="ERROR",
+                    ai_reasoning=f"Groq API error: {str(e)}",
+                    ai_confidence=0.0,
+                    ai_round=module.ai_round,
+                    model_used=groq_model,
+                    tokens_used=0,
+                    cost=0.0
+                )
+                db.add(ai_analysis)
+        
+        # Commit all analyses
+        print(f"🔍 DEBUG: Committing {len(sampled_cases)} AI analyses to database...")
+        db.commit()
+        print(f"✅ DEBUG: All AI analyses committed successfully")
+        
+    except Exception as e:
+        # Handle function-level errors
+        print(f"❌ ERROR in _run_groq_ai_analysis: {str(e)}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        print("❌ Falling back to mock AI due to error")
+        _run_mock_ai_analysis(module, sampled_cases, db)
+
+
+def _build_llama_prompt(question: str, case_text: str, answer_type: str, 
+                        answer_options: list = None, project_context: str = None,
+                        module_context: str = None) -> str:
+    """Build a structured prompt for Llama"""
+    
+    prompt_parts = []
+    
+    # Add project context if available
+    if project_context:
+        prompt_parts.append(f"PROJECT CONTEXT:\n{project_context}\n")
+    
+    # Add module context if available
+    if module_context:
+        prompt_parts.append(f"MODULE CONTEXT:\n{module_context}\n")
+    
+    # Add the question
+    prompt_parts.append(f"QUESTION:\n{question}\n")
+    
+    # Add answer format instructions
+    if answer_type == "yes_no":
+        prompt_parts.append("ANSWER FORMAT: Respond with only 'Yes' or 'No'.\n")
+    elif answer_type == "multiple_choice" and answer_options:
+        prompt_parts.append(f"ANSWER FORMAT: Choose ONE of these options: {', '.join(answer_options)}\n")
+    elif answer_type == "integer":
+        prompt_parts.append("ANSWER FORMAT: Respond with a single number.\n")
+    elif answer_type == "date":
+        prompt_parts.append("ANSWER FORMAT: Respond with a date in YYYY-MM-DD format.\n")
+    else:
+        prompt_parts.append("ANSWER FORMAT: Provide a brief, direct answer.\n")
+    
+    # Add the case text (limit to avoid token limits)
+    prompt_parts.append(f"COURT OPINION:\n{case_text[:4000]}\n")
+    
+    # Final instruction
+    prompt_parts.append("Based on the court opinion above, answer the question. Provide ONLY the answer, no explanation.")
+    
+    return "\n".join(prompt_parts)
+
 
 @router.get("/modules/{module_id}/validation-cases")
 def get_validation_cases(
@@ -616,6 +968,10 @@ def get_validation_cases(
     for assignment in assignments:
         # Get case
         case = db.query(CourtCase).filter(CourtCase.id == assignment.case_id).first()
+        
+        # Null Check
+        if not case:
+            continue  # Skip if case doesn't exist
         
         # Get AI analysis
         ai_analysis = db.query(AIAnalysis).filter(
@@ -669,7 +1025,6 @@ def get_validation_cases(
                 "validator_notes": validation.validator_notes,
                 "validated_at": validation.submitted_at
             }
-
         else:
             case_data["validation"] = None
         

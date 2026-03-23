@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # Groq:
+    GROQ_API_KEY: str = ""  # Groq API key for AI analysis
+    
+    class Config:
+        env_file = ".env"
+
     # Database
     DATABASE_URL: str = "sqlite:///./database.db"
     
