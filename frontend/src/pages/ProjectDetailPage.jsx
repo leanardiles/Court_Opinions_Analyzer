@@ -79,6 +79,10 @@ useEffect(() => {
   const [selectedModuleForValidator, setSelectedModuleForValidator] = useState(null);
   const [moduleAssignments, setModuleAssignments] = useState({});
 
+  const [showModuleContextModal, setShowModuleContextModal] = useState(false);
+  const [selectedModuleForContext, setSelectedModuleForContext] = useState(null);
+  const [moduleContextText, setModuleContextText] = useState('');
+  const [savingModuleContext, setSavingModuleContext] = useState(false);
 
   const loadModules = async () => {
     try {
@@ -425,6 +429,23 @@ useEffect(() => {
       alert('Failed to save context: ' + (err.response?.data?.detail || 'Unknown error'));
     } finally {
       setSavingContext(false);
+    }
+  };
+
+  const handleSaveModuleContext = async () => {
+    if (!selectedModuleForContext) return;
+    setSavingModuleContext(true);
+    try {
+      await modulesAPI.update(selectedModuleForContext.id, {
+        module_context: moduleContextText
+      });
+      await loadModules();
+      setShowModuleContextModal(false);
+      setSelectedModuleForContext(null);
+    } catch (err) {
+      alert('Failed to save module context: ' + (err.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setSavingModuleContext(false);
     }
   };
 
@@ -838,6 +859,43 @@ useEffect(() => {
                           </div>
                           
                           <p className="text-gray-700 mb-3">{module.question_text}</p>
+
+                          {/* Module Context Preview */}
+                          {module.module_context ? (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                              <div className="text-xs font-semibold text-gray-500 mb-1">
+                                📋 Module Context:
+                              </div>
+                              <div className="text-sm text-gray-700 line-clamp-3 whitespace-pre-wrap mb-2">
+                                {module.module_context}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSelectedModuleForContext(module);
+                                  setModuleContextText(module.module_context || '');
+                                  setShowModuleContextModal(true);
+                                }}
+                                className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                              >
+                                {['draft', 'sampling_complete'].includes(module.status)
+                                  ? '✏️ View / Edit Context'
+                                  : '📄 View Context'}
+                              </button>
+                            </div>
+                          ) : (
+                            ['draft', 'sampling_complete'].includes(module.status) && (
+                              <button
+                                onClick={() => {
+                                  setSelectedModuleForContext(module);
+                                  setModuleContextText('');
+                                  setShowModuleContextModal(true);
+                                }}
+                                className="text-xs text-purple-600 hover:text-purple-800 font-medium mb-3 block"
+                              >
+                                + Add Module Context
+                              </button>
+                            )
+                          )}
                           
                           <div className="flex gap-4 text-sm text-gray-600 mb-3">
                             <span>Type: <span className="font-medium">{module.answer_type.replace(/_/g, ' ')}</span></span>
@@ -1070,6 +1128,20 @@ useEffect(() => {
                 />
               </div>
 
+              {/* Module Context */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Module-Specific Context (Optional)
+                </label>
+                <textarea
+                  value={moduleFormData.module_context}
+                  onChange={(e) => setModuleFormData({...moduleFormData, module_context: e.target.value})}
+                  placeholder="Provide specific guidance for this question... (Markdown supported)"
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue font-mono text-sm"
+                />
+              </div>
+
               {/* Answer Type */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1123,20 +1195,6 @@ useEffect(() => {
                   </div>
                 </div>
               )}
-
-              {/* Module Context */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Module-Specific Context (Optional)
-                </label>
-                <textarea
-                  value={moduleFormData.module_context}
-                  onChange={(e) => setModuleFormData({...moduleFormData, module_context: e.target.value})}
-                  placeholder="Provide specific guidance for this question... (Markdown supported)"
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue font-mono text-sm"
-                />
-              </div>
 
               {/* Sample Size */}
               <div>
@@ -1407,6 +1465,66 @@ useEffect(() => {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Module Context Editor Modal */}
+      {showModuleContextModal && selectedModuleForContext && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-3xl my-8">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-2">
+              Module Context
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              <span className="font-semibold">{selectedModuleForContext.module_name}</span>
+              {' · '}
+              {['draft', 'sampling_complete'].includes(selectedModuleForContext.status)
+                ? 'Editable — module not yet launched'
+                : '🔒 Read-only — module already launched'}
+            </p>
+
+            <textarea
+              value={moduleContextText}
+              onChange={(e) => setModuleContextText(e.target.value)}
+              disabled={!['draft', 'sampling_complete'].includes(selectedModuleForContext.status)}
+              placeholder="Provide specific guidance for this question... (Markdown supported)"
+              rows={16}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-purple-600 font-mono text-sm disabled:bg-gray-50 disabled:text-gray-600 disabled:cursor-not-allowed"
+            />
+
+            <div className="flex gap-3 mt-6">
+              {['draft', 'sampling_complete'].includes(selectedModuleForContext.status) ? (
+                <>
+                  <button
+                    onClick={handleSaveModuleContext}
+                    disabled={savingModuleContext}
+                    className="flex-1 px-6 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50"
+                  >
+                    {savingModuleContext ? 'Saving...' : 'Save Context'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowModuleContextModal(false);
+                      setSelectedModuleForContext(null);
+                    }}
+                    className="flex-1 px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowModuleContextModal(false);
+                    setSelectedModuleForContext(null);
+                  }}
+                  className="w-full px-6 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>
