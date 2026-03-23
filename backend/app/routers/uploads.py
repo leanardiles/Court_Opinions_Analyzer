@@ -108,6 +108,10 @@ async def upload_parquet(
         project.parquet_filepath = str(file_path)
         project.total_cases = cases_imported
         db.commit()
+
+        # Auto-update status to 'ready' if scholar is already assigned
+        from app.routers.projects import update_project_status
+        update_project_status(project, db)
         
     except Exception as e:
         db.rollback()
