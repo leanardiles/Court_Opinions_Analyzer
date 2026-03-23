@@ -748,28 +748,26 @@ useEffect(() => {
         {/* Project Context Section - Scholar only */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-serif font-bold text-cardozo-dark">
-                Project Context
-              </h2>
-              <button
-                onClick={() => setShowContextEditor(true)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition shadow text-sm"
-              >
-                {projectContext ? '✏️ Edit Context' : '+ Add Context'}
-              </button>
-            </div>
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-4">
+              Project Context
+            </h2>
 
             {projectContext ? (
               <div className="card">
-                <div className="prose max-w-none">
-                  <div className="text-sm text-gray-600 mb-2 font-semibold">
-                    📄 Overarching context for all modules:
-                  </div>
-                  <div className="whitespace-pre-wrap text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    {projectContext}
-                  </div>
+                {/* Preview */}
+                <div className="text-sm text-gray-600 mb-2 font-semibold">
+                  📄 Overarching context for all modules:
                 </div>
+                <div className="text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4
+                                overflow-hidden line-clamp-3 whitespace-pre-wrap">
+                  {projectContext}
+                </div>
+                <button
+                  onClick={() => setShowContextEditor(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition text-sm"
+                >
+                  📄 View / Edit Context
+                </button>
               </div>
             ) : (
               <div className="card text-center py-12">
@@ -779,14 +777,19 @@ useEffect(() => {
                   </svg>
                 </div>
                 <p className="text-gray-600 mb-2">No project context added yet</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-4">
                   Add overarching context to guide AI analysis across all modules
                 </p>
+                <button
+                  onClick={() => setShowContextEditor(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition text-sm"
+                >
+                  + Add Context
+                </button>
               </div>
             )}
           </div>
         )}
-
 
         {/* Modules Section - Scholar only */}
         {user?.role === 'scholar' && project?.scholar_id === user?.id && (
