@@ -608,7 +608,7 @@ def get_my_assignments(
 ):
     """
     Get all modules assigned to the current validator.
-    Shows across all projects.
+    Shows across all projects, grouped data includes project scholar info.
     """
     if current_user.role.value != "validator":
         raise HTTPException(status_code=403, detail="Only validators can access this endpoint")
@@ -628,18 +628,22 @@ def get_my_assignments(
             continue
         
         project = db.query(Project).filter(Project.id == module.project_id).first()
-        
-        # ✅ ADD THIS NULL CHECK
         if not project:
-            continue  # Skip this module if project doesn't exist
-        
+            continue
+
+        # Get scholar email
+        scholar_email = None
+        if project.scholar_id:
+            scholar = db.query(User).filter(User.id == project.scholar_id).first()
+            if scholar:
+                scholar_email = scholar.email
+
         # Count total cases and completed validations
         total_cases = db.query(ValidatorAssignment).filter(
             ValidatorAssignment.module_id == module_id,
             ValidatorAssignment.validator_id == current_user.id
         ).count()
         
-        # Get completed validations by counting feedback through assignments
         completed_cases = db.query(ValidationFeedback).join(
             ValidatorAssignment,
             ValidationFeedback.assignment_id == ValidatorAssignment.id
@@ -657,6 +661,7 @@ def get_my_assignments(
             "project_id": project.id,
             "project_name": project.name,
             "project_description": project.description,
+            "scholar_email": scholar_email,
             "total_cases": total_cases,
             "completed_cases": completed_cases,
             "progress_percentage": int((completed_cases / total_cases * 100)) if total_cases > 0 else 0
