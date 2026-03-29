@@ -20,6 +20,8 @@ import { authAPI } from './api/client';
 import ValidationCompletionPage from './pages/ValidationCompletionPage';
 import ModuleReviewPage from './pages/ModuleReviewPage';
 import CorrectionReviewPage from './pages/CorrectionReviewPage';
+import ModuleDetailPage from './pages/ModuleDetailPage';
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -95,6 +97,9 @@ function App() {
 
             {/* Project Detail */}
             <Route path="/project/:projectId" element={<ProjectDetailPage user={user} onLogout={handleLogout} />} />
+
+            {/* Module Detail */}
+            <Route path="/project/:projectId/module/:moduleId" element={<ModuleDetailPage user={user} onLogout={handleLogout} />} />
 
             {/* Upload */}
             <Route path="/upload/:projectId" element={<UploadPage user={user} onLogout={handleLogout} />} />
