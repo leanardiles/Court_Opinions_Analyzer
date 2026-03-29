@@ -297,7 +297,13 @@ export const validatorAPI = {
       }
     });
     return response.data;
-  }
+  },
+
+  // Submit all validations
+  submitAllValidations: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/submit-validation`);
+    return response.data;
+  },
 };
 
 export default apiClient;

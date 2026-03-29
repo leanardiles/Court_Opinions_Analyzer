@@ -4,7 +4,8 @@ Create test users for development
 
 from app.database import SessionLocal, engine
 from app.models import Base, User, UserRole
-from app.auth import get_password_hash
+from app.utils.auth import hash_password
+
 
 # Create tables first (in case they don't exist)
 Base.metadata.create_all(bind=engine)
@@ -26,7 +27,7 @@ users = [
     # Admin
     User(
         email="admin@cardozo.edu",
-        hashed_password=get_password_hash("admin12345"),
+        hashed_password=hash_password("admin12345"),
         full_name="Admin User",
         role=UserRole.ADMIN,
         is_active=True
@@ -34,7 +35,7 @@ users = [
     # Scholar
     User(
         email="scholar1@cardozo.edu",
-        hashed_password=get_password_hash("scholar123"),
+        hashed_password=hash_password("scholar123"),
         full_name="Professor Smith",
         role=UserRole.SCHOLAR,
         is_active=True
@@ -42,14 +43,14 @@ users = [
     # Validators
     User(
         email="ta1@cardozo.edu",
-        hashed_password=get_password_hash("validator123"),
+        hashed_password=hash_password("validator123"),
         full_name="TA Johnson",
         role=UserRole.VALIDATOR,
         is_active=True
     ),
     User(
         email="ta2@cardozo.edu",
-        hashed_password=get_password_hash("validator123"),
+        hashed_password=hash_password("validator123"),
         full_name="TA Williams",
         role=UserRole.VALIDATOR,
         is_active=True

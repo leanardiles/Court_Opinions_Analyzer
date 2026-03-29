@@ -340,6 +340,7 @@ class ModuleCaseSample(Base):
     # Sampling metadata
     selected_at = Column(DateTime, default=datetime.utcnow)
     sample_order = Column(Integer)  # 1, 2, 3...
+    round = Column(Integer, default=1)
     
     # Relationships
     module = relationship("VerificationModule", backref="case_samples")
@@ -361,6 +362,7 @@ class ValidatorAssignment(Base):
     module_id = Column(Integer, ForeignKey("verification_modules.id", ondelete="CASCADE"))
     case_id = Column(Integer, ForeignKey("court_cases.id", ondelete="CASCADE"))
     validator_id = Column(Integer, ForeignKey("users.id"))
+    round = Column(Integer, default=1)
     
     # Status
     status = Column(String, default="pending")  # "pending", "in_progress", "completed"
@@ -429,6 +431,7 @@ class ValidationFeedback(Base):
     id = Column(Integer, primary_key=True)
     assignment_id = Column(Integer, ForeignKey("validator_assignments.id", ondelete="CASCADE"))
     ai_analysis_id = Column(Integer, ForeignKey("ai_analyses.id", ondelete="CASCADE"))
+    round = Column(Integer, default=1)
     
     # Validator's decision
     is_correct = Column(Boolean)  # True = AI correct, False = AI wrong

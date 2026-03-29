@@ -1228,6 +1228,70 @@ def submit_validation(
             "validation_id": validation.id
         }
     
+
+@router.post("/modules/{module_id}/submit-validation")
+def submit_all_validations(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Validator submits all validations for a module.
+    Triggers module status → validation_complete.
+    """
+    if current_user.role.value != "validator":
+        raise HTTPException(status_code=403, detail="Only validators can submit validations")
+
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Verify this validator is assigned to this module
+    assignment_check = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).first()
+
+    if not assignment_check:
+        raise HTTPException(status_code=403, detail="You are not assigned to this module")
+
+    # Count total cases assigned to this validator for this round
+    total_cases = db.query(ValidatorAssignment).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).count()
+
+    # Count completed validations
+    completed_cases = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidatorAssignment.validator_id == current_user.id
+    ).count()
+
+    # Verify all cases have been validated
+    if completed_cases < total_cases:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not all cases validated. {completed_cases}/{total_cases} completed."
+        )
+
+    # Update module status
+    module.status = "validation_complete"
+    module.completed_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "All validations submitted successfully",
+        "module_id": module_id,
+        "total_cases": total_cases,
+        "status": "validation_complete"
+    }
+
+
 @router.get("/modules/{module_id}/validation-summary")
 def get_validation_summary(
     module_id: int,

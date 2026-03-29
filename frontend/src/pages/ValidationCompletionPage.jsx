@@ -9,6 +9,8 @@ export default function ValidationCompletionPage({ user, onLogout }) {
   const [module, setModule] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     loadCompletionStats();
@@ -42,6 +44,27 @@ export default function ValidationCompletionPage({ user, onLogout }) {
       setLoading(false);
     }
   };
+
+
+  const handleSubmitAll = async () => {
+  if (!window.confirm(
+    'Submit all your validations for this module?\n\n' +
+    'This will notify the scholar that validation is complete.'
+  )) {
+    return;
+  }
+
+  setSubmitting(true);
+  try {
+    await validatorAPI.submitAllValidations(moduleId);
+    setSubmitted(true);
+  } catch (err) {
+    alert('Failed to submit: ' + (err.response?.data?.detail || 'Unknown error'));
+  } finally {
+    setSubmitting(false);
+  }
+};  
+
 
   if (loading) {
     return (
@@ -176,20 +199,48 @@ export default function ValidationCompletionPage({ user, onLogout }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate('/validate/' + moduleId)}
-            className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
-          >
-            Review My Validations
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex-1 px-6 py-3 bg-cardozo-blue text-white rounded-lg font-semibold hover:bg-[#005A94] transition"
-          >
-            Return to Dashboard
-          </button>
-        </div>
+        {submitted ? (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <p className="text-green-800 font-semibold">
+                ✓ Validations submitted successfully! The scholar has been notified.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full px-6 py-3 bg-cardozo-blue text-white rounded-lg font-semibold hover:bg-[#005A94] transition"
+            >
+              Return to Dashboard
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Submit All — primary action */}
+            <button
+              onClick={handleSubmitAll}
+              disabled={submitting}
+              className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {submitting ? 'Submitting...' : '✓ Submit All Validations'}
+            </button>
+
+            {/* Secondary actions */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => navigate('/validate/' + moduleId)}
+                className="flex-1 px-6 py-3 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition"
+              >
+                Review My Validations
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex-1 px-6 py-3 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition"
+              >
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        )}            
       </main>
     </div>
   );
