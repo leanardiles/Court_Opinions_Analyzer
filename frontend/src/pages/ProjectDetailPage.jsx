@@ -1003,9 +1003,10 @@ useEffect(() => {
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex gap-2 mt-4">
-                            {/* Step 1: Assign Validator (shows when no validator assigned) */}
-                            {!assignment.validator && (
+                          <div className="flex gap-2 mt-4 flex-wrap">
+
+                            {/* DRAFT: Assign Validator */}
+                            {module.status === 'draft' && !assignment.validator && (
                               <button
                                 onClick={() => handleOpenValidatorModal(module)}
                                 className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
@@ -1013,9 +1014,9 @@ useEffect(() => {
                                 👤 Assign Validator
                               </button>
                             )}
-                            
-                            {/* Step 2: Launch Module (shows after validator assigned, before sampling) */}
-                            {assignment.validator && !assignment.sampled && (
+
+                            {/* DRAFT: Launch Module */}
+                            {module.status === 'draft' && assignment.validator && (
                               <button
                                 onClick={() => handleLaunchModule(module.id)}
                                 className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
@@ -1023,18 +1024,15 @@ useEffect(() => {
                                 🚀 Launch Module
                               </button>
                             )}
-                            
-                            {/* Step 3: Validation progress (shows after module launched) */}
-                            {module.status === 'validation_in_progress' && assignment.sampled && (
+
+                            {/* VALIDATION IN PROGRESS */}
+                            {module.status === 'validation_in_progress' && (
                               <>
-                                {/* Validator hasn't finished yet — no action for scholar */}
                                 {!assignment.validator_finished && (
                                   <span className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-sm font-medium">
                                     ⏳ Waiting for validator ({assignment.completed_cases}/{assignment.sample_count} cases)
                                   </span>
                                 )}
-
-                                {/* Validator finished, corrections pending — scholar needs to act */}
                                 {assignment.validator_finished && assignment.corrections_pending > 0 && (
                                   <button
                                     onClick={() => navigate(`/module-review/${module.id}`)}
@@ -1043,8 +1041,6 @@ useEffect(() => {
                                     📊 Review Corrections ({assignment.corrections_pending})
                                   </button>
                                 )}
-
-                                {/* Validator finished, no corrections — AI was perfect */}
                                 {assignment.validator_finished && assignment.corrections_pending === 0 && (
                                   <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded text-sm font-medium">
                                     ✓ AI was 100% accurate
@@ -1053,13 +1049,70 @@ useEffect(() => {
                               </>
                             )}
 
+                            {/* VALIDATION COMPLETE — scholar notification */}
+                            {module.status === 'validation_complete' && (
+                              <div className="w-full bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                <span className="text-sm text-green-800 font-semibold">
+                                  ✓ Validation complete — Round {module.ai_round}
+                                </span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => navigate(`/project/${projectId}/module/${module.id}/results/${module.ai_round}`)}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
+                                  >
+                                    📊 View Results
+                                  </button>
+                                  {assignment.corrections_pending > 0 && (
+                                    <button
+                                      onClick={() => navigate(`/module-review/${module.id}`)}
+                                      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition"
+                                    >
+                                      Review Corrections ({assignment.corrections_pending})
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* CORRECTIONS REVIEWED */}
+                            {module.status === 'corrections_reviewed' && (
+                              <div className="w-full bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                <span className="text-sm text-blue-800 font-semibold">
+                                  ✓ Corrections reviewed — Ready for next step
+                                </span>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => navigate(`/project/${projectId}/module/${module.id}/results/${module.ai_round}`)}
+                                    className="px-3 py-1.5 bg-cardozo-blue text-white rounded-lg text-sm font-medium hover:bg-[#005A94] transition"
+                                  >
+                                    📊 View Results
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* COMPLETED */}
+                            {module.status === 'completed' && (
+                              <div className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                <span className="text-sm text-gray-700 font-semibold">
+                                  ✓ Module completed
+                                </span>
+                                <button
+                                  onClick={() => navigate(`/project/${projectId}/module/${module.id}/results/${module.ai_round}`)}
+                                  className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition"
+                                >
+                                  📊 View Results
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Clone — always visible */}
                             <button
                               onClick={() => handleCloneModule(module)}
                               className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-semibold text-xs"
                             >
-                              Clone
+                              📋 Clone
                             </button>
-
                           </div>
                         </div>
                       </div>
