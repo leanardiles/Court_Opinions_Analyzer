@@ -2,8 +2,8 @@
 
 AI-powered web application for analyzing court opinions with in-context learning and human-in-the-loop verification.
 
-**Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)
-**Team Members:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba 
+**Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)  
+**Team Members:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba  
 **Status:** 🚧 In Development
 
 ---
@@ -12,7 +12,7 @@ AI-powered web application for analyzing court opinions with in-context learning
 
 A web-based platform that enables legal scholars to analyze court opinions with AI assistance and human verification. The system implements a three-tier workflow:
 
-1. **AI Analysis** → Automated analysis of court opinions using Llama 3.3 70B / Llama 4 Maverick (Groq Cloud)
+1. **AI Analysis** → Automated analysis of court opinions using Llama 3.3 70B / Llama 4 Maverick (Groq Cloud) or mock AI
 2. **TA Verification** → Human validators verify AI findings
 3. **Scholar Review** → Legal scholars review verified results
 
@@ -20,7 +20,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 
 ✅ **Role-Based Access Control** (Admin, Scholar, Validator)  
 ✅ **JWT Authentication** with secure password hashing  
-✅ **Database-Driven Architecture** (13-table relational schema)  
+✅ **Database-Driven Architecture** (13-table relational schema with round tracking)  
 ✅ **RESTful API** with auto-generated documentation  
 ✅ **Parquet File Processing** with automated parsing  
 ✅ **Project Management** with CRUD operations and scholar assignment  
@@ -29,6 +29,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Dynamic Case Viewer** with on-demand modal  
 ✅ **Cardozo Law Branded UI** (professional design system)  
 ✅ **Module-Based Verification** with configurable research questions  
+✅ **Module Detail Page** with full module management  
 ✅ **Two-Level Context System** (project-wide + module-specific)  
 ✅ **Collapsed Context Preview** with view/edit modal (project and module level)  
 ✅ **AI Provider Selection** (Dummy AI, Llama 3.1 8B, Llama 3.3 70B, Llama 4 Maverick via Groq)  
@@ -38,15 +39,23 @@ A web-based platform that enables legal scholars to analyze court opinions with 
 ✅ **Mock AI Analysis** for testing validator workflow  
 ✅ **Clone Module** with pre-populated form (name left blank for scholar)  
 ✅ **Module Deletion** with tiered confirmation based on validation status  
-✅ **Validator Dashboard** showing assigned modules with progress  
+✅ **Validator Dashboard** with accordion layout grouped by project  
+✅ **Project-level progress bar** across all modules  
 ✅ **Accurate Validation Status Display** (waiting / in progress / complete)  
 ✅ **Case-by-Case Validation Interface** with AI review and corrections  
+✅ **Submit All Validations** — validator explicitly submits to trigger scholar notification  
 ✅ **Validation Completion Summary** with accuracy statistics  
 ✅ **Scholar Review Interface** with approve/reject workflow  
 ✅ **Trust Validator Bulk Approve** feature  
 ✅ **Feedback Library** for AI improvement (Round 2)  
+✅ **Module Results Page** with validation analytics  
+✅ **Confidence Calibration Table** — accuracy by confidence tier  
+✅ **Answer Distribution Analysis** — AI vs validator answer breakdown  
+✅ **Trust Threshold Recommendation** — actionable scholar guidance  
 ✅ **Alternating Color Backgrounds** for module cards  
-🚧 **Multi-Round Feedback Loop** (Coming soon)
+🚧 **Multi-Round Feedback Loop** (In progress)  
+🚧 **New Round Workflow** (In progress)  
+🚧 **Mark Module as Complete** (In progress)
 
 ---
 
@@ -72,6 +81,7 @@ A web-based platform that enables legal scholars to analyze court opinions with 
   - Llama 3.1 8B Instant (`llama-3.1-8b-instant`) — Fast
   - Llama 3.3 70B Versatile (`llama-3.3-70b-versatile`) — Recommended
   - Llama 4 Maverick 17B (`meta-llama/llama-4-maverick-17b-128e-instruct`) — Best Quality
+- **Mock AI:** Built-in dummy responses for testing
 
 ---
 
@@ -118,9 +128,7 @@ python create_test_users.py
 **3. Environment Variables Setup**
 
 Create a `.env` file in the `backend/` directory:
-
 ```bash
-# Copy the example file
 cp .env.example .env
 ```
 
@@ -129,19 +137,17 @@ Then edit `.env` and add your **Groq API key**:
 1. Sign up at https://console.groq.com
 2. Create an API key (free tier: 14,400 requests/day)
 3. Add to `.env`:
-   ```env
+```env
    GROQ_API_KEY=gsk_your_actual_api_key_here
    DATABASE_URL=sqlite:///./database.db
    SECRET_KEY=your-secret-key-here
-   ```
+```
 
 **Important:** Never commit your `.env` file to GitHub! It's already in `.gitignore`.
 
 **4. Frontend Setup**
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
 ```
 
@@ -176,7 +182,7 @@ When creating a module, scholars can choose from:
 
 All Groq models run on cloud infrastructure with **no local setup required**. The free tier provides 14,400 requests per day, which is more than sufficient for typical research projects.
 
-**AI Provider is locked after the first module is created** to ensure data integrity across all modules in a project.
+**AI Provider is locked after the first module is created** to ensure data integrity across all modules in a project. The same provider is used across all rounds of a module.
 
 ### Structured AI Responses
 
@@ -203,21 +209,50 @@ All Groq-powered analyses return structured responses with three components:
 
 ## 📊 Database Schema
 
-Current schema includes 13 tables:
+Current schema includes 13 tables, with round tracking across key tables:
 
 - **users** - User accounts with role-based access (admin/scholar/validator)
 - **projects** - Research projects containing court case collections
 - **court_cases** - Individual court opinions with metadata
-- **verification_modules** - Research questions for AI analysis
-- **module_case_samples** - Random case samples per module
-- **validator_assignments** - Links validators to cases for verification
-- **ai_analyses** - AI-generated answers with reasoning and confidence
-- **validation_feedback** - Validator corrections and scholar review
+- **verification_modules** - Research questions for AI analysis (tracks `ai_round`)
+- **module_case_samples** - Random case samples per module and round
+- **validator_assignments** - Links validators to cases for verification, per round
+- **ai_analyses** - AI-generated answers with reasoning and confidence, per round
+- **validation_feedback** - Validator corrections and scholar review, per round
 - **feedback_library** - Approved corrections for Round 2 training
 - **project_contexts** - Project-wide guidance for AI
 - And 3 more supporting tables
 
 See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
+
+---
+
+## 📈 Validation Analytics
+
+After each validation round, scholars can access a **Module Results Page** with:
+
+### 1. Overview
+- Total cases analyzed, AI correct count, AI incorrect count
+- Overall accuracy percentage with color-coded bar
+
+### 2. Confidence Calibration
+Accuracy broken down by confidence tier — answers the key research question: *does high AI confidence actually predict correctness?*
+
+| Confidence Tier | Cases | AI Correct | Accuracy |
+|---|---|---|---|
+| High (0.90-1.00) | — | — | — |
+| Medium (0.70-0.89) | — | — | — |
+| Low (0.50-0.69) | — | — | — |
+| Very Low (0.00-0.49) | — | — | — |
+
+### 3. Answer Distribution
+Side-by-side comparison of what AI said vs what validators confirmed — detects systematic bias.
+
+### 4. Trust Threshold Recommendation
+Actionable guidance based on accuracy:
+- **≥85%** → High confidence, ready for corpus-wide application
+- **70-84%** → Moderate confidence, consider another round
+- **<70%** → Low confidence, revise context and rerun
 
 ---
 
@@ -253,32 +288,33 @@ See `backend/docs/DATABASE_SCHEMA.txt` for complete schema documentation.
 Court_Opinions_Analyzer/
 ├── backend/
 │   ├── app/
-│   │   ├── routers/          # API endpoints
-│   │   ├── core/             # Configuration (config.py)
-│   │   ├── database.py       # Database connection
-│   │   ├── models.py         # SQLAlchemy models
-│   │   ├── schemas.py        # Pydantic schemas
-│   │   └── main.py           # FastAPI app
-│   ├── uploads/              # Uploaded Parquet files
-│   ├── venv/                 # Virtual environment (not in git)
-│   ├── .env                  # Environment variables (not in git)
-│   ├── .env.example          # Template for environment variables
-│   ├── database.db           # SQLite database
-│   ├── init_db.py            # Database setup script
+│   │   ├── routers/        # API endpoints
+│   │   ├── core/           # Configuration (config.py)
+│   │   ├── database.py     # Database connection
+│   │   ├── models.py       # SQLAlchemy models
+│   │   ├── schemas.py      # Pydantic schemas
+│   │   └── main.py         # FastAPI app
+│   ├── uploads/            # Uploaded Parquet files
+│   ├── venv/               # Virtual environment (not in git)
+│   ├── .env                # Environment variables (not in git)
+│   ├── .env.example        # Template for environment variables
+│   ├── database.db         # SQLite database
+│   ├── init_db.py          # Database setup script
 │   ├── create_test_users.py  # Test user creation
-│   └── requirements.txt      # Python dependencies
+│   └── requirements.txt    # Python dependencies
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/            # React pages
-│   │   ├── components/       # Reusable components
-│   │   ├── api/              # API client
+│   │   ├── pages/          # React pages
+│   │   ├── components/     # Reusable components
+│   │   ├── api/            # API client
 │   │   ├── App.jsx
 │   │   ├── main.jsx
 │   │   └── index.css
-│   ├── node_modules/         # Node packages (not in git)
+│   ├── node_modules/       # Node packages (not in git)
 │   ├── package.json
 │   └── vite.config.js
 ├── .gitignore
+├── PROJECT_PROGRESS.txt    # Development tracker
 └── README.md
 ```
 
@@ -291,12 +327,11 @@ Court_Opinions_Analyzer/
 **Backend:**
 ```bash
 # Start server
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 
-# Reset database
+# Reset database (wipes all data)
+python init_db.py --drop
 python init_db.py
-
-# Recreate test users
 python create_test_users.py
 
 # Add new dependency
@@ -318,10 +353,7 @@ npm install package-name
 
 **Git:**
 ```bash
-# Check status
 git status
-
-# Commit changes
 git add .
 git commit -m "feat: description"
 git push
@@ -352,7 +384,7 @@ pip install -r requirements.txt
 
 **3. Create Your .env File**
 ```bash
-# In the backend/ directory
+cd backend
 cp .env.example .env
 ```
 
@@ -428,9 +460,9 @@ npm run dev
 - [x] Groq Cloud API integration
 - [x] Migration from Ollama to Groq for better team collaboration
 - [x] AI provider selection dropdown (4 options: Dummy, 8B, 70B, 405B)
-- [x] Real AI analysis with Llama 3.1 models (cloud-hosted)
+- [x] Real AI analysis with Llama models (cloud-hosted)
 - [x] Environment variable management with .env
-- [x] AI provider locked after module creation
+- [x] AI provider locked after first module creation
 - [x] Per-case validator assignment (fixed case count bug)
 
 **✅ Completed (Day 9 - Mar 23, 2026)**
@@ -451,12 +483,28 @@ npm run dev
 - [x] Fixed Groq API integration (expired key + tokens_used bug)
 - [x] Updated Groq model names to current versions
 
-**🚧 Next Steps (Day 10)**
-- [ ] Multi-round feedback loop with accuracy improvement metrics
-- [ ] Progressive in-context learning (feedback library → Round 2 prompts)
+**✅ Completed (Day 10 - Mar 29, 2026)**
+- [x] Schema migration — added round tracking to module_case_samples, validator_assignments, validation_feedback
+- [x] Submit All Validations — validator explicitly submits to trigger validation_complete status
+- [x] Scholar notification on module card when validation complete
+- [x] Module Detail Page — dedicated page for full module management
+- [x] Simplified module cards on project page (name, status, question, View Module button)
+- [x] Module Results Page with four analytics sections
+- [x] Confidence calibration table (accuracy by confidence tier)
+- [x] Answer distribution analysis (AI vs validator breakdown)
+- [x] Trust threshold recommendation with actionable guidance
+- [x] Validator Dashboard redesigned as accordion grouped by project
+- [x] Project-level progress bar across all modules
+- [x] Scholar email shown on validator dashboard
+- [x] Various UI improvements (login page, button colors, context previews)
+
+**🚧 Next Steps**
+- [ ] New Round workflow (start-new-round endpoint + UI)
+- [ ] Mark Module as Complete
+- [ ] Full corpus AI application (apply to all cases after trust threshold reached)
 - [ ] Demo preparation and final testing
 
-**Progress: 9/10 days complete (90%)** 🎯
+**Progress: ~95% complete** 🎯
 
 ---
 
@@ -474,8 +522,8 @@ npm run dev
 
 ### Cost if Scaling Beyond Free Tier
 - **Llama 3.1 8B:** $0.05 per million tokens (~$0.0003 per case)
-- **Llama 3.1 70B:** $0.59 per million tokens (~$0.003 per case)
-- **Llama 3.1 405B:** $2.80 per million tokens (~$0.014 per case)
+- **Llama 3.3 70B:** $0.59 per million tokens (~$0.003 per case)
+- **Llama 4 Maverick:** $0.50 per million tokens (~$0.0025 per case)
 
 **Example:** Analyzing 1,000 cases with 70B = ~$3.00 total
 
@@ -487,6 +535,7 @@ npm run dev
 - **Module templates** - Save frequently-used module configurations
 - **Batch module creation** - Create multiple similar modules at once
 - **Per-module AI provider** - Currently locked at project level; future versions may allow per-module selection for A/B testing
+- **Inter-case consistency** - Analyze whether AI errors cluster by state, court, or date
 
 ### Multi-Validator Support
 - **Multiple validators per module** - Assign 2+ validators independently
@@ -516,7 +565,7 @@ npm run dev
 - **Inter-coder reliability reports** - Statistical analysis of validator agreement
 - **Confusion matrices** - Visualize AI error patterns by category
 - **Model comparison reports** - Side-by-side accuracy for different AI providers
-- **Publication-ready exports** - Tables and figures for academic papersvvvvv
+- **Publication-ready exports** - Tables and figures for academic papers
 
 ---
 
@@ -533,11 +582,27 @@ npm run dev
 
 ### "No API key found - falling back to mock"
 **Problem:** Groq API key not loaded  
-**Solution:** 
+**Solution:**
 1. Check `.env` file exists in `backend/` directory
 2. Verify `GROQ_API_KEY=gsk_...` is set (no quotes)
 3. Restart backend server after editing `.env`
 4. Check `main.py` has `load_dotenv()` at the top
+
+### "403 Access Denied" from Groq API
+**Problem:** API key expired or deleted  
+**Solution:**
+1. Go to https://console.groq.com/keys
+2. Create a new API key
+3. Update `GROQ_API_KEY` in your `.env` file
+4. Save — backend will auto-reload
+
+### "Generated by Groq Cloud API" showing as reasoning
+**Problem:** Old hardcoded placeholder in database from before structured response parsing was implemented  
+**Solution:** Delete the affected module and create a fresh one — existing database records won't update automatically
+
+### "Invalid AI provider" error when creating second module
+**Problem:** `ai_provider` gets wiped from form state after first module creation  
+**Solution:** Ensure all three form reset locations in `ProjectDetailPage.jsx` include `ai_provider: selectedAIProvider`
 
 ### "Module uses dummy AI instead of Groq"
 **Problem:** Project's default AI provider still set to old value  
@@ -561,13 +626,24 @@ pip install -r requirements.txt
 2. Visit http://localhost:8000/docs to verify
 3. Check CORS settings in `main.py`
 
+### Database reset needed after schema changes
+**Problem:** New columns added to models but database not updated  
+**Solution:**
+```bash
+cd backend
+source venv/Scripts/activate
+python init_db.py --drop
+python init_db.py
+python create_test_users.py
+```
+
 ---
 
 ## 🤝 Contributing
 
 This is a capstone project for academic purposes. For questions or collaboration:
 - **Leandro Ardiles** - [GitHub](https://github.com/leanardiles)
-- **Course:** MS in Applied Data Science, Katz School
+- **Course:** Capstone I, Katz School
 - **Partner:** Cardozo School of Law
 
 ---

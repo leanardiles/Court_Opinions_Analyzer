@@ -188,20 +188,35 @@ def update_module(
             status_code=400,
             detail=f"Cannot update module in {module.status} status"
         )
-    
-    # Update fields
+
+    # Update fields — some locked after round 1
     if module_data.module_name is not None:
         module.module_name = module_data.module_name
-    if module_data.question_text is not None:
-        module.question_text = module_data.question_text
-    if module_data.answer_type is not None:
-        module.answer_type = module_data.answer_type
-    if module_data.answer_options is not None:
-        module.answer_options = module_data.answer_options
+
+    if module.ai_round > 1:
+        # Lock these fields after round 1 for research integrity
+        if any([
+            module_data.question_text is not None,
+            module_data.answer_type is not None,
+            module_data.answer_options is not None,
+        ]):
+            raise HTTPException(
+                status_code=400,
+                detail="Question, answer type and answer options cannot be changed after round 1"
+            )
+    else:
+        if module_data.question_text is not None:
+            module.question_text = module_data.question_text
+        if module_data.answer_type is not None:
+            module.answer_type = module_data.answer_type
+        if module_data.answer_options is not None:
+            module.answer_options = module_data.answer_options
+
+    # Always editable
     if module_data.module_context is not None:
         module.module_context = module_data.module_context
     if module_data.sample_size is not None:
-        module.sample_size = module_data.sample_size
+        module.sample_size = module_data.sample_size    
     
     module.updated_at = datetime.utcnow()
     
@@ -751,6 +766,22 @@ def launch_module(
     # Use module's AI provider first, then project's, then fallback
     ai_provider = module.ai_provider or project.ai_provider or "dummy"
 
+    # Fetch feedback library for round 2+ (in-context learning)
+    feedback_examples = []
+    if module.ai_round > 1:
+        feedback_items = db.query(FeedbackLibrary).filter(
+            FeedbackLibrary.module_id == module_id
+        ).all()
+        feedback_examples = [
+            {
+                "wrong_answer": f.wrong_answer,
+                "correct_answer": f.correct_answer,
+                "correction_reason": f.correction_reason,
+            }
+            for f in feedback_items
+        ]
+        print(f"🔍 DEBUG: Round {module.ai_round} — loaded {len(feedback_examples)} feedback examples")
+
     # DEBUG LINE:
     print(f"DEBUG: ai_provider = {ai_provider}")
 
@@ -774,7 +805,7 @@ def launch_module(
         ai_used = "Dummy AI (Mock)"
     elif ai_provider in ["groq-llama-8b", "groq-llama-70b", "groq-llama-405b"]:
         print("DEBUG: Calling _run_groq_ai_analysis")
-        _run_groq_ai_analysis(module, sampled_cases, ai_provider, project, db)
+        _run_groq_ai_analysis(module, sampled_cases, ai_provider, project, db, feedback_examples)
         model_size = ai_provider.split('-')[2].upper()
         ai_used = f"Llama 3.3 {model_size} (Groq Cloud)"
     else:
@@ -849,7 +880,8 @@ def _run_mock_ai_analysis(module: VerificationModule, sampled_cases: list, db: S
 
 
 def _run_groq_ai_analysis(module: VerificationModule, sampled_cases: list, 
-                          ai_provider: str, project: Project, db: Session):
+                          ai_provider: str, project: Project, db: Session,
+                          feedback_examples: list = None):
     """Run AI analysis using Groq API (cloud-hosted Llama models)"""
     try:
         from app.models import AIAnalysis
@@ -904,7 +936,8 @@ def _run_groq_ai_analysis(module: VerificationModule, sampled_cases: list,
                     answer_type=module.answer_type,
                     answer_options=module.answer_options,
                     project_context=project_context,
-                    module_context=module.module_context
+                    module_context=module.module_context,
+                    feedback_examples=feedback_examples
                 )
                 
                 print(f"🔍 DEBUG: Prompt built, calling Groq API...")
@@ -1003,7 +1036,8 @@ def _run_groq_ai_analysis(module: VerificationModule, sampled_cases: list,
 
 def _build_llama_prompt(question: str, case_text: str, answer_type: str, 
                         answer_options: list = None, project_context: str = None,
-                        module_context: str = None) -> str:
+                        module_context: str = None,
+                        feedback_examples: list = None) -> str:
     """Build a structured prompt for Llama"""
     
     prompt_parts = []
@@ -1016,6 +1050,18 @@ def _build_llama_prompt(question: str, case_text: str, answer_type: str,
     if module_context:
         prompt_parts.append(f"MODULE CONTEXT:\n{module_context}\n")
     
+    # Add feedback from previous rounds (in-context learning)
+    if feedback_examples:
+        feedback_text = "CORRECTIONS FROM PREVIOUS ROUND (learn from these mistakes):\n"
+        for i, example in enumerate(feedback_examples, 1):
+            feedback_text += f"\nExample {i}:\n"
+            feedback_text += f"  Wrong answer: {example['wrong_answer']}\n"
+            feedback_text += f"  Correct answer: {example['correct_answer']}\n"
+            if example['correction_reason']:
+                feedback_text += f"  Why it was wrong: {example['correction_reason']}\n"
+        feedback_text += "\nUse these corrections to avoid making the same mistakes.\n"
+        prompt_parts.append(feedback_text)
+
     # Add the question
     prompt_parts.append(f"QUESTION:\n{question}\n")
     
@@ -1764,4 +1810,50 @@ def get_module_results(
         "recommendation": recommendation,
         "high_conf_percentage": high_conf_percentage,
         "low_conf_percentage": low_conf_percentage,
-    }    
+    }  
+
+@router.post("/modules/{module_id}/start-new-round")
+def start_new_round(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Start a new validation round for a module.
+    Increments ai_round, resets status to draft.
+    Locks question, answer type, answer options and ai_provider from editing.
+    """
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Permission check
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Must be in corrections_reviewed status to start new round
+    if module.status != "corrections_reviewed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module must be in corrections_reviewed status to start a new round. Current status: {module.status}"
+        )
+
+    # Increment round and reset status
+    module.ai_round += 1
+    module.status = "draft"
+    module.launched_at = None
+    module.completed_at = None
+
+    db.commit()
+    db.refresh(module)
+
+    return {
+        "success": True,
+        "message": f"Round {module.ai_round} started successfully",
+        "module_id": module_id,
+        "new_round": module.ai_round,
+        "status": module.status
+    }  

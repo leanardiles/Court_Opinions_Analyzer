@@ -268,6 +268,11 @@ export const modulesAPI = {
     const response = await apiClient.post(`/modules/modules/${moduleId}/trust-validator`);
     return response.data;
   },
+
+  startNewRound: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/start-new-round`);
+    return response.data;
+  },
 };
 
 // Validator API

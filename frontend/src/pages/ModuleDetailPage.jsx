@@ -21,6 +21,11 @@ export default function ModuleDetailPage({ user, onLogout }) {
   const [moduleContextText, setModuleContextText] = useState('');
   const [savingModuleContext, setSavingModuleContext] = useState(false);
 
+  // Validation Rounds modal
+  const [showNewRoundModal, setShowNewRoundModal] = useState(false);
+  const [newRoundSampleSize, setNewRoundSampleSize] = useState(null);
+  const [startingNewRound, setStartingNewRound] = useState(false);
+
   useEffect(() => {
     loadData();
   }, [moduleId]);
@@ -153,6 +158,23 @@ export default function ModuleDetailPage({ user, onLogout }) {
       </div>
     );
   }
+
+  const handleStartNewRound = async () => {
+    setStartingNewRound(true);
+    try {
+      await modulesAPI.startNewRound(moduleId);
+      // Update sample size if changed
+      if (newRoundSampleSize && newRoundSampleSize !== module.sample_size) {
+        await modulesAPI.update(moduleId, { sample_size: newRoundSampleSize });
+      }
+      setShowNewRoundModal(false);
+      await loadData();
+    } catch (err) {
+      alert('Failed to start new round: ' + (err.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setStartingNewRound(false);
+    }
+  };
 
   const isEditable = ['draft', 'sampling_complete'].includes(module?.status);
 
@@ -383,16 +405,27 @@ export default function ModuleDetailPage({ user, onLogout }) {
 
             {/* CORRECTIONS REVIEWED */}
             {module.status === 'corrections_reviewed' && (
-              <div className="w-full bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
-                <span className="text-sm text-blue-800 font-semibold">
-                  ✓ Corrections reviewed — Ready for next step
-                </span>
-                <div className="flex gap-2">
+              <div className="w-full bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-blue-800 font-semibold">
+                    ✓ Corrections reviewed — Round {module.ai_round} complete
+                  </span>
                   <button
                     onClick={() => navigate(`/project/${projectId}/module/${moduleId}/results/${module.ai_round}`)}
                     className="px-4 py-2 bg-cardozo-blue text-white rounded-lg text-sm font-medium hover:bg-[#005A94] transition"
                   >
                     📊 View Results
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setNewRoundSampleSize(module.sample_size);
+                      setShowNewRoundModal(true);
+                    }}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
+                  >
+                    🔄 Start Round {module.ai_round + 1}
                   </button>
                 </div>
               </div>
@@ -517,6 +550,113 @@ export default function ModuleDetailPage({ user, onLogout }) {
         </div>
       )}
 
+      {/* New Round Modal */}
+      {showNewRoundModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-lg">
+            <h2 className="text-2xl font-serif font-bold text-cardozo-dark mb-2">
+              Start Round {module.ai_round + 1}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              A new round will re-run AI analysis using feedback from Round {module.ai_round} corrections.
+            </p>
+
+            {/* Locked fields */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-3">
+                🔒 Locked from Round 1 (cannot change)
+              </p>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-semibold text-gray-600">Question:</span>
+                  <p className="text-gray-800 mt-0.5">{module.question_text}</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-600">Answer Type:</span>
+                  <span className="text-gray-800 ml-2">{module.answer_type.replace(/_/g, ' ')}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-600">AI Provider:</span>
+                  <span className="text-gray-800 ml-2">{module.ai_provider}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Editable fields */}
+            <div className="space-y-4 mb-6">
+              <p className="text-xs font-semibold text-gray-500 uppercase">
+                ✏️ Editable for this round
+              </p>
+
+              {/* Sample size */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Sample Size
+                </label>
+                <input
+                  type="number"
+                  value={newRoundSampleSize || module.sample_size}
+                  onChange={(e) => setNewRoundSampleSize(parseInt(e.target.value))}
+                  min="1"
+                  max="1000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cardozo-blue focus:border-cardozo-blue"
+                />
+              </div>
+
+              {/* Validator — info only, they can change via module detail after */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Validator
+                </label>
+                <p className="text-sm text-gray-600">
+                  {assignment.validator?.email || 'No validator assigned'}
+                  <span className="text-gray-400 ml-2 text-xs">
+                    (can be changed from module page after starting round)
+                  </span>
+                </p>
+              </div>
+
+              {/* Module context */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Module Context
+                </label>
+                <p className="text-sm text-gray-600">
+                  {module.module_context
+                    ? 'Context is set — can be edited from module page after starting round'
+                    : 'No context — can be added from module page after starting round'}
+                </p>
+              </div>
+            </div>
+
+            {/* Feedback summary */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
+              <p className="text-sm text-green-800">
+                ✓ Approved corrections from Round {module.ai_round} will automatically be included
+                in the AI prompt to improve accuracy.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleStartNewRound}
+                disabled={startingNewRound}
+                className="flex-1 px-6 py-2.5 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                {startingNewRound ? 'Starting...' : `Start Round ${module.ai_round + 1}`}
+              </button>
+              <button
+                onClick={() => setShowNewRoundModal(false)}
+                disabled={startingNewRound}
+                className="flex-1 px-6 py-2.5 bg-gray-400 text-white rounded-lg font-semibold hover:bg-gray-500 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
