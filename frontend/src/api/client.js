@@ -273,6 +273,11 @@ export const modulesAPI = {
     const response = await apiClient.post(`/modules/modules/${moduleId}/start-new-round`);
     return response.data;
   },
+
+  completeModule: async (moduleId) => {
+    const response = await apiClient.post(`/modules/modules/${moduleId}/complete`);
+    return response.data;
+  },
 };
 
 // Validator API

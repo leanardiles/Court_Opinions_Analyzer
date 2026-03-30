@@ -26,6 +26,8 @@ export default function ModuleDetailPage({ user, onLogout }) {
   const [newRoundSampleSize, setNewRoundSampleSize] = useState(null);
   const [startingNewRound, setStartingNewRound] = useState(false);
 
+  const [completing, setCompleting] = useState(false);
+
   useEffect(() => {
     loadData();
   }, [moduleId]);
@@ -152,14 +154,6 @@ export default function ModuleDetailPage({ user, onLogout }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-xl text-gray-600">Loading...</div>
-      </div>
-    );
-  }
-
   const handleStartNewRound = async () => {
     setStartingNewRound(true);
     try {
@@ -176,6 +170,32 @@ export default function ModuleDetailPage({ user, onLogout }) {
       setStartingNewRound(false);
     }
   };
+
+  const handleCompleteModule = async () => {
+    if (!window.confirm(
+      `Mark "${module.module_name}" as complete?\n\n` +
+      `This means you are satisfied with the AI accuracy and no further rounds are needed.\n\n` +
+      `This action cannot be undone.`
+    )) return;
+
+    setCompleting(true);
+    try {
+      await modulesAPI.completeModule(moduleId);
+      await loadData();
+    } catch (err) {
+      alert('Failed to complete module: ' + (err.response?.data?.detail || 'Unknown error'));
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   const isEditable = ['draft', 'sampling_complete'].includes(module?.status);
 
@@ -428,6 +448,14 @@ export default function ModuleDetailPage({ user, onLogout }) {
                   >
                     🔄 Start Round {module.ai_round + 1}
                   </button>
+                  <button
+                      onClick={handleCompleteModule}
+                      disabled={completing}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+                    >
+                      ✓ Mark as Complete
+                    </button>
+                  
                 </div>
               </div>
             )}
@@ -449,7 +477,7 @@ export default function ModuleDetailPage({ user, onLogout }) {
 
             {/* Clone — always visible */}
             <button
-              onClick={() => navigate(`/project/${projectId}`)}
+              onClick={handleCloneModule}
               className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium text-sm"
             >
               📋 Clone Module

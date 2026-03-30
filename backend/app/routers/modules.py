@@ -1893,3 +1893,42 @@ def start_new_round(
         "new_round": module.ai_round,
         "status": module.status
     }  
+
+@router.post("/modules/{module_id}/complete")
+def complete_module(
+    module_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Scholar marks a module as complete.
+    No new rounds can be started after this.
+    """
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Permission check
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Must be in corrections_reviewed status
+    if module.status != "corrections_reviewed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Module must be in corrections_reviewed status to mark as complete. Current status: {module.status}"
+        )
+
+    module.status = "completed"
+    module.approved_at = datetime.utcnow()
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Module '{module.module_name}' marked as complete",
+        "module_id": module_id,
+        "status": "completed"
+    }
