@@ -304,6 +304,12 @@ export const validatorAPI = {
     const response = await apiClient.post(`/modules/modules/${moduleId}/submit-validation`);
     return response.data;
   },
+
+  // Visualize Module Results
+  getResults: async (moduleId, round = 1) => {
+    const response = await apiClient.get(`/modules/modules/${moduleId}/results?round=${round}`);
+    return response.data;
+  },
 };
 
 export default apiClient;

@@ -1605,3 +1605,163 @@ def trust_validator_bulk_approve(
         "approved_count": count,
         "message": f"Bulk approved {count} corrections"
     }
+
+@router.get("/modules/{module_id}/results")
+def get_module_results(
+    module_id: int,
+    round: int = 1,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get validation results and analytics for a module round.
+    Used by scholars to decide whether to trust AI and proceed.
+    """
+    # Get module
+    module = db.query(VerificationModule).filter(VerificationModule.id == module_id).first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Check permissions
+    project = db.query(Project).filter(Project.id == module.project_id).first()
+    if current_user.role.value == "scholar" and project.scholar_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    elif current_user.role.value not in ["scholar", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    # Get all AI analyses for this module and round
+    analyses = db.query(AIAnalysis).filter(
+        AIAnalysis.module_id == module_id,
+        AIAnalysis.ai_round == round
+    ).all()
+
+    total_cases = len(analyses)
+
+    if total_cases == 0:
+        raise HTTPException(status_code=404, detail="No analyses found for this round")
+
+    # Get all validations for this round
+    validations = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id
+    ).all()
+
+    # Basic accuracy
+    ai_correct = sum(1 for v in validations if v.is_correct)
+    ai_incorrect = sum(1 for v in validations if not v.is_correct)
+    accuracy_percentage = round((ai_correct / total_cases * 100)) if total_cases > 0 else 0
+
+    # ── Accuracy by confidence tier ──────────────────────────────
+    tiers = [
+        {"label": "High (0.90-1.00)",    "min": 0.90, "max": 1.01},
+        {"label": "Medium (0.70-0.89)",  "min": 0.70, "max": 0.90},
+        {"label": "Low (0.50-0.69)",     "min": 0.50, "max": 0.70},
+        {"label": "Very Low (0.00-0.49)","min": 0.00, "max": 0.50},
+    ]
+
+    confidence_tiers = []
+    for tier in tiers:
+        tier_analyses = [
+            a for a in analyses
+            if a.ai_confidence is not None
+            and tier["min"] <= a.ai_confidence < tier["max"]
+        ]
+        tier_case_ids = {a.case_id for a in tier_analyses}
+        tier_validations = [v for v in validations
+            if db.query(ValidatorAssignment).filter(
+                ValidatorAssignment.id == v.assignment_id
+            ).first().case_id in tier_case_ids
+        ]
+        tier_correct = sum(1 for v in tier_validations if v.is_correct)
+        tier_total = len(tier_analyses)
+        tier_accuracy = round((tier_correct / tier_total * 100)) if tier_total > 0 else None
+
+        confidence_tiers.append({
+            "label": tier["label"],
+            "total_cases": tier_total,
+            "correct": tier_correct,
+            "accuracy": tier_accuracy
+        })
+
+    # ── Answer distribution ───────────────────────────────────────
+    from collections import Counter
+
+    ai_answers = Counter(a.ai_answer for a in analyses if a.ai_answer)
+
+    # Map case_id → validator correction or "correct" (kept AI answer)
+    validator_answers = {}
+    for v in validations:
+        assignment = db.query(ValidatorAssignment).filter(
+            ValidatorAssignment.id == v.assignment_id
+        ).first()
+        ai_analysis = db.query(AIAnalysis).filter(
+            AIAnalysis.module_id == module_id,
+            AIAnalysis.case_id == assignment.case_id,
+            AIAnalysis.ai_round == round
+        ).first()
+        if v.is_correct:
+            answer = ai_analysis.ai_answer if ai_analysis else "Unknown"
+        else:
+            answer = v.validator_correction or "Unknown"
+        validator_answers[assignment.case_id] = answer
+
+    validator_answer_counts = Counter(validator_answers.values())
+
+    # Build combined distribution
+    all_answers = set(list(ai_answers.keys()) + list(validator_answer_counts.keys()))
+    answer_distribution = [
+        {
+            "answer": ans,
+            "ai_count": ai_answers.get(ans, 0),
+            "validator_count": validator_answer_counts.get(ans, 0)
+        }
+        for ans in sorted(all_answers)
+    ]
+
+    # ── Trust threshold recommendation ───────────────────────────
+    high_conf_analyses = [a for a in analyses if a.ai_confidence and a.ai_confidence >= 0.70]
+    high_conf_percentage = round((len(high_conf_analyses) / total_cases * 100)) if total_cases > 0 else 0
+    low_conf_percentage = 100 - high_conf_percentage
+
+    if accuracy_percentage >= 85:
+        trust_level = "high"
+        recommendation = (
+            f"AI accuracy is {accuracy_percentage}% overall. "
+            f"The model is performing well and can be trusted for corpus-wide application. "
+            f"Consider flagging only low-confidence cases ({low_conf_percentage}% of corpus) for human review."
+        )
+    elif accuracy_percentage >= 70:
+        trust_level = "medium"
+        recommendation = (
+            f"AI accuracy is {accuracy_percentage}% overall. "
+            f"Consider running a Round {round + 1} with feedback from this round's corrections "
+            f"before applying to the full corpus."
+        )
+    else:
+        trust_level = "low"
+        recommendation = (
+            f"AI accuracy is {accuracy_percentage}% — below acceptable threshold. "
+            f"Review your project and module context, then run another round "
+            f"with improved guidance before applying to the full corpus."
+        )
+
+    return {
+        "module_id": module_id,
+        "module_name": module.module_name,
+        "question_text": module.question_text,
+        "answer_type": module.answer_type,
+        "round": round,
+        "total_rounds": module.ai_round,
+        "total_cases": total_cases,
+        "ai_correct": ai_correct,
+        "ai_incorrect": ai_incorrect,
+        "accuracy_percentage": accuracy_percentage,
+        "confidence_tiers": confidence_tiers,
+        "answer_distribution": answer_distribution,
+        "trust_level": trust_level,
+        "recommendation": recommendation,
+        "high_conf_percentage": high_conf_percentage,
+        "low_conf_percentage": low_conf_percentage,
+    }    

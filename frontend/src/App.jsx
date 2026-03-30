@@ -21,6 +21,7 @@ import ValidationCompletionPage from './pages/ValidationCompletionPage';
 import ModuleReviewPage from './pages/ModuleReviewPage';
 import CorrectionReviewPage from './pages/CorrectionReviewPage';
 import ModuleDetailPage from './pages/ModuleDetailPage';
+import ModuleResultsPage from './pages/ModuleResultsPage';
 
 
 function App() {
@@ -101,6 +102,9 @@ function App() {
             {/* Module Detail */}
             <Route path="/project/:projectId/module/:moduleId" element={<ModuleDetailPage user={user} onLogout={handleLogout} />} />
 
+            {/* Module Results */}
+            <Route path="/project/:projectId/module/:moduleId/results/:round" element={<ModuleResultsPage user={user} onLogout={handleLogout} />} />    
+            
             {/* Upload */}
             <Route path="/upload/:projectId" element={<UploadPage user={user} onLogout={handleLogout} />} />
 
