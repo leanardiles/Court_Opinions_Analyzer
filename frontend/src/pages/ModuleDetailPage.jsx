@@ -132,6 +132,7 @@ export default function ModuleDetailPage({ user, onLogout }) {
 
   const handleCloneModule = async () => {
     try {
+      await modulesAPI.clone(moduleId);
       navigate(`/project/${projectId}`);
     } catch (err) {
       alert('Failed to clone module: ' + (err.response?.data?.detail || 'Unknown error'));
@@ -656,7 +657,7 @@ export default function ModuleDetailPage({ user, onLogout }) {
           </div>
         </div>
       )}
-      
+
     </div>
   );
 }

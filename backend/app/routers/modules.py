@@ -726,15 +726,16 @@ def launch_module(
             detail="Validator must be assigned before launching module"
         )
     
-    # Check if already sampled
+    # Check if already sampled FOR THIS ROUND
     existing_samples = db.query(ModuleCaseSample).filter(
-        ModuleCaseSample.module_id == module_id
+        ModuleCaseSample.module_id == module_id,
+        ModuleCaseSample.round == module.ai_round
     ).count()
-    
+
     if existing_samples > 0:
         raise HTTPException(
             status_code=400,
-            detail="Module already launched with sampled cases"
+            detail=f"Module round {module.ai_round} already launched"
         )
     
     # STEP 1: Sample cases
@@ -748,12 +749,13 @@ def launch_module(
     sample_size = min(module.sample_size, len(all_cases))
     sampled_cases = random.sample(all_cases, sample_size)
     
-    # Create case samples
+    # Create case samples for this round
     for idx, case in enumerate(sampled_cases, start=1):
         sample = ModuleCaseSample(
             module_id=module_id,
             case_id=case.id,
-            sample_order=idx
+            sample_order=idx,
+            round=module.ai_round
         )
         db.add(sample)
     
@@ -830,7 +832,8 @@ def launch_module(
             case_assignment = ValidatorAssignment(
                 module_id=module_id,
                 validator_id=validator_id,
-                case_id=case.id
+                case_id=case.id,
+                round=module.ai_round
             )
             db.add(case_assignment)
 
@@ -1329,12 +1332,26 @@ def submit_all_validations(
     module.completed_at = datetime.utcnow()
     db.commit()
 
+    # Check if there are any incorrect validations needing review
+    incorrect_count = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidationFeedback.is_correct == False
+    ).count()
+
+    # If AI was 100% accurate, no corrections to review — skip straight to corrections_reviewed
+    if incorrect_count == 0:
+        module.status = "corrections_reviewed"
+        db.commit()
+
     return {
         "success": True,
         "message": "All validations submitted successfully",
         "module_id": module_id,
         "total_cases": total_cases,
-        "status": "validation_complete"
+        "status": module.status
     }
 
 
@@ -1573,11 +1590,28 @@ def review_correction(
             )
             db.add(feedback)
  
+    db.commit()
+
+    # Check if all corrections are now reviewed — if so, mark module as corrections_reviewed
+    pending_corrections = db.query(ValidationFeedback).join(
+        ValidatorAssignment,
+        ValidationFeedback.assignment_id == ValidatorAssignment.id
+    ).filter(
+        ValidatorAssignment.module_id == module_id,
+        ValidationFeedback.is_correct == False,
+        ValidationFeedback.scholar_reviewed == False
+    ).count()
+
+    if pending_corrections == 0:
+        module.status = "corrections_reviewed"
+        db.commit()
+
     return {
         "success": True,
         "validation_id": validation_id,
         "approved": approve,
-        "added_to_feedback_library": approve
+        "added_to_feedback_library": approve,
+        "corrections_reviewed": pending_corrections == 0
     }
 
 
@@ -1644,8 +1678,10 @@ def trust_validator_bulk_approve(
         db.add(feedback)
         count += 1
     
+    # All corrections reviewed — mark module as corrections_reviewed
+    module.status = "corrections_reviewed"
     db.commit()
-    
+
     return {
         "success": True,
         "approved_count": count,
