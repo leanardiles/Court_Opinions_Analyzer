@@ -3,7 +3,7 @@
 AI-powered web application for analyzing court opinions with in-context learning and human-in-the-loop verification.
 
 **Capstone Project** | Katz School of Applied Sciences & Cardozo Law School (Yeshiva University)  
-**Team Members:** Leandro Ardiles, Divya Nambur Govindareddy, Tanaka Zvakaramba  
+**Team Members:** Leandro Ardiles
 **Status:** 🚧 In Development
 
 ---
